@@ -1,0 +1,30 @@
+{
+  "name": "@ketab/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for creating and publishing Ketab Protocol events",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "publish": "deno publish"
+  },
+  "keywords": [
+    "ketab-protocol",
+    "nostr",
+    "books",
+    "library",
+    "sdk"
+  ],
+  "author": "Ketab Protocol Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@ketab/core": "workspace:*",
+    "@noble/hashes": "^1.7.2",
+    "nostr-tools": "^2.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@joinnextblock/ketab-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ketab Protocol monorepo - Protocol specification, core types, and SDK",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joinnextblock/ketab-protocol"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.9.3"
+  }
+}

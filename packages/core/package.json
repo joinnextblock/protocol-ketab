@@ -1,0 +1,29 @@
+{
+  "name": "@ketab/core",
+  "version": "0.1.0",
+  "description": "Core constants and types for Ketab Protocol",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "publish": "deno publish"
+  },
+  "keywords": [
+    "ketab-protocol",
+    "nostr",
+    "books",
+    "library",
+    "core"
+  ],
+  "author": "Ketab Protocol Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "nostr-tools": "^2.17.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.9.3"
+  }
+}
