@@ -28,10 +28,6 @@ export interface BookContent {
   ref_book_pubkey: string;
   /** Reference to book ID */
   ref_book_id: string;
-  /** Reference to library pubkey (optional - author's primary library) */
-  ref_library_pubkey?: string;
-  /** Reference to library ID (optional - author's primary library) */
-  ref_library_id?: string;
   /** Reference to block event identifier */
   ref_block_id: string;
 }

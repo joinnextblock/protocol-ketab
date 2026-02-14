@@ -1,6 +1,6 @@
 import type { BookContent, BookId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
-import { KIND_BOOK, KIND_LIBRARY } from "@ketab/core";
+import { KIND_BOOK } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
 
 /**
@@ -33,12 +33,6 @@ export function build_book_event(
     ["d", book_identifier],
   ];
 
-  // Add library address if provided
-  if (content.ref_library_pubkey && content.ref_library_id) {
-    const library_address = `${KIND_LIBRARY}:${content.ref_library_pubkey}:${content.ref_library_id}`;
-    tags.push(["a", library_address]);
-  }
-
   // Add chapter addresses for relay indexing
   for (const chapter_address of content.chapters) {
     tags.push(["a", chapter_address]);
@@ -46,11 +40,6 @@ export function build_book_event(
 
   // Add author pubkey
   tags.push(["p", pubkey]);
-
-  // Add library pubkey if provided
-  if (content.ref_library_pubkey) {
-    tags.push(["p", content.ref_library_pubkey]);
-  }
 
   // Add topic tags (genre, subject, etc.) - these would need to be passed separately
   // For now, we'll leave this to the caller to add if needed
