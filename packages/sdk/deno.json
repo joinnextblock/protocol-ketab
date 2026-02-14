@@ -1,0 +1,20 @@
+{
+  "name": "@ketab/sdk",
+  "version": "0.3.0",
+  "exports": "./src/index.ts",
+  "imports": {
+    "@ketab/core": "jsr:@ketab/core@^0.3.0",
+    "nostr-tools/pure": "npm:nostr-tools@^2/pure",
+    "@noble/hashes/utils": "npm:@noble/hashes@^1/utils"
+  },
+  "publish": {
+    "include": [
+      "src/**/*.ts",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "**/*.test.ts"
+    ]
+  }
+}
