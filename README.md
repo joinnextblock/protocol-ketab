@@ -23,6 +23,7 @@ Ketab Protocol (LIBRARY-01) is a Nostr-based protocol for organizing native book
 
 Chapters (NIP-23 events) support engagement through standard Nostr kinds:
 - **Kind 1** - Text Note (reader comments)
+- **Kind 1111** - Comment (threaded comments, NIP-22)
 - **Kind 9802** - Highlights (reader snippets/quotes, NIP-84)
 - **Kind 9735** - Zap Receipt (zap reactions, NIP-57)
 - **Kind 6** - Repost (sharing books/chapters, NIP-18)
@@ -86,9 +87,10 @@ This allows libraries to operate on Bitcoin time without needing their own block
 
 This monorepo contains the core Ketab Protocol packages:
 
-- `@ketab/protocol` - LIBRARY-01 specification (markdown docs only)
 - `@ketab/core` - TypeScript types and constants (no runtime code)
 - `@ketab/sdk` - Event construction utilities, Nostr signing/publishing
+
+The protocol specification is at [PROTOCOL.md](./PROTOCOL.md).
 
 ## Development
 
