@@ -1,6 +1,6 @@
 import type { BookContent, BookId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
-import { KIND_BOOK, KIND_LIBRARY, BOOK_ID_PREFIX, LIBRARY_ID_PREFIX } from "@ketab/core";
+import { KIND_BOOK, KIND_LIBRARY } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
 
 /**
@@ -25,8 +25,7 @@ export function build_book_event(
 ): Omit<BaseNostrEvent, "id" | "sig"> {
   const { secret_key, book_id, content, created_at = Math.floor(Date.now() / 1000) } = options;
 
-  // Validate book ID format
-  const book_identifier: BookId = `${BOOK_ID_PREFIX}${book_id}`;
+  const book_identifier: BookId = book_id;
 
   const pubkey = get_public_key(secret_key);
 
@@ -36,7 +35,7 @@ export function build_book_event(
 
   // Add library address if provided
   if (content.ref_library_pubkey && content.ref_library_id) {
-    const library_address = `${KIND_LIBRARY}:${content.ref_library_pubkey}:${LIBRARY_ID_PREFIX}${content.ref_library_id}`;
+    const library_address = `${KIND_LIBRARY}:${content.ref_library_pubkey}:${content.ref_library_id}`;
     tags.push(["a", library_address]);
   }
 
@@ -75,5 +74,5 @@ export function build_book_address(
   author_pubkey: string,
   book_id: string
 ): string {
-  return `${KIND_BOOK}:${author_pubkey}:${BOOK_ID_PREFIX}${book_id}`;
+  return `${KIND_BOOK}:${author_pubkey}:${book_id}`;
 }

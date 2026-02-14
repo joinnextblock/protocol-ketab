@@ -28,8 +28,8 @@ export interface LibraryEntryContent {
   ref_block_id: string;
 }
 
-/** Library Entry identifier format: org.ketab-protocol:entry:<library_owner_pubkey>:<book_slug> */
-export type LibraryEntryId = `org.ketab-protocol:entry:${string}:${string}`;
+/** Library Entry identifier (d-tag value, scoped to librarian pubkey) */
+export type LibraryEntryId = string;
 
 /** Parsed Library Entry event */
 export interface LibraryEntryEvent {

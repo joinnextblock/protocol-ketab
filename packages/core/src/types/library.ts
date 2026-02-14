@@ -32,11 +32,11 @@ export interface LibraryContent {
   chapter_count: number;
 }
 
-/** Library identifier format: org.ketab-protocol:library:<library_id> */
-export type LibraryId = `org.ketab-protocol:library:${string}`;
+/** Library identifier (d-tag value, scoped to founder pubkey) */
+export type LibraryId = string;
 
-/** Library address format: 38890:<founder_pubkey>:org.ketab-protocol:library:<library_id> */
-export type LibraryAddress = `${number}:${string}:org.ketab-protocol:library:${string}`;
+/** Library address format: 38890:<founder_pubkey>:<library_id> */
+export type LibraryAddress = string;
 
 /** Parsed Library event */
 export interface LibraryEvent {

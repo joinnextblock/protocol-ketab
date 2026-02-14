@@ -2,6 +2,8 @@
  * Book Event (Kind 38891) Types
  */
 
+import type { ChapterAddress } from "./chapter.ts";
+
 /** Book event content structure */
 export interface BookContent {
   /** Book title */
@@ -34,14 +36,11 @@ export interface BookContent {
   ref_block_id: string;
 }
 
-/** Book identifier format: org.ketab-protocol:book:<book_slug> */
-export type BookId = `org.ketab-protocol:book:${string}`;
+/** Book identifier (d-tag value, scoped to author pubkey) */
+export type BookId = string;
 
-/** Book address format: 38891:<author_pubkey>:org.ketab-protocol:book:<book_slug> */
-export type BookAddress = `${number}:${string}:org.ketab-protocol:book:${string}`;
-
-/** Chapter address format: 30023:<author_pubkey>:<chapter_d-tag> */
-export type ChapterAddress = `30023:${string}:${string}`;
+/** Book address format: 38891:<author_pubkey>:<book_id> */
+export type BookAddress = string;
 
 /** Parsed Book event */
 export interface BookEvent {

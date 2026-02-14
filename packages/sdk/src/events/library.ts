@@ -1,6 +1,6 @@
 import type { LibraryContent, LibraryId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
-import { KIND_LIBRARY, LIBRARY_ID_PREFIX } from "@ketab/core";
+import { KIND_LIBRARY } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
 
 /**
@@ -25,8 +25,7 @@ export function build_library_event(
 ): Omit<BaseNostrEvent, "id" | "sig"> {
   const { secret_key, library_id, content, created_at = Math.floor(Date.now() / 1000) } = options;
 
-  // Validate library ID format
-  const library_identifier: LibraryId = `${LIBRARY_ID_PREFIX}${library_id}`;
+  const library_identifier: LibraryId = library_id;
 
   const pubkey = get_public_key(secret_key);
 
@@ -63,5 +62,5 @@ export function build_library_address(
   founder_pubkey: string,
   library_id: string
 ): string {
-  return `${KIND_LIBRARY}:${founder_pubkey}:${LIBRARY_ID_PREFIX}${library_id}`;
+  return `${KIND_LIBRARY}:${founder_pubkey}:${library_id}`;
 }

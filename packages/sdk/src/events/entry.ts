@@ -1,6 +1,6 @@
 import type { LibraryEntryContent, LibraryEntryId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
-import { KIND_LIBRARY_ENTRY, KIND_BOOK, KIND_LIBRARY, BOOK_ID_PREFIX, LIBRARY_ID_PREFIX, LIBRARY_ENTRY_ID_PREFIX } from "@ketab/core";
+import { KIND_LIBRARY_ENTRY, KIND_BOOK, KIND_LIBRARY } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
 
 /**
@@ -29,16 +29,15 @@ export function build_library_entry_event(
 ): Omit<BaseNostrEvent, "id" | "sig"> {
   const { secret_key, library_owner_pubkey, book_slug, content, book_author_pubkey, created_at = Math.floor(Date.now() / 1000) } = options;
 
-  // Validate entry ID format
-  const entry_identifier: LibraryEntryId = `${LIBRARY_ENTRY_ID_PREFIX}${library_owner_pubkey}:${book_slug}`;
+  const entry_identifier: LibraryEntryId = `${library_owner_pubkey}:${book_slug}`;
 
   const pubkey = get_public_key(secret_key);
 
   // Build book coordinate
-  const book_coordinate = `${KIND_BOOK}:${book_author_pubkey}:${BOOK_ID_PREFIX}${book_slug}`;
+  const book_coordinate = `${KIND_BOOK}:${book_author_pubkey}:${book_slug}`;
 
   // Build library coordinate
-  const library_coordinate = `${KIND_LIBRARY}:${library_owner_pubkey}:${LIBRARY_ID_PREFIX}${content.ref_library_id}`;
+  const library_coordinate = `${KIND_LIBRARY}:${library_owner_pubkey}:${content.ref_library_id}`;
 
   const tags: string[][] = [
     ["d", entry_identifier],

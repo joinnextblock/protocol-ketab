@@ -33,10 +33,6 @@ const library_content: LibraryContent = {
 - `KIND_BOOK` - Book event kind (38891)
 - `KIND_LIBRARY_ENTRY` - Library Entry event kind (38892)
 - `LIBRARY_PROTOCOL_KINDS` - Array of all Ketab Protocol event kinds
-- `LIBRARY_NAMESPACE` - Protocol namespace prefix
-- `LIBRARY_ID_PREFIX` - Library identifier prefix
-- `BOOK_ID_PREFIX` - Book identifier prefix
-- `LIBRARY_ENTRY_ID_PREFIX` - Library Entry identifier prefix
 - `CHAPTER_ID_PREFIX` - Chapter identifier prefix (NIP-23)
 
 ### Types

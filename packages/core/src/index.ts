@@ -11,5 +11,6 @@ export * from "./constants/kinds.ts";
 // Types
 export * from "./types/library.ts";
 export * from "./types/book.ts";
+export * from "./types/chapter.ts";
 export * from "./types/entry.ts";
 export * from "./types/events.ts";
