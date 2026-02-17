@@ -119,10 +119,6 @@ All reference the ketab's `a` coordinate: `38893:<pubkey>:<ketab-uuid>`
 4. Sort ketabs by `index` field in content JSON
 5. Each ketab is individually addressable via `naddr`
 
-## Dual Publishing (NKBIP-01)
-
-Books publish both kind 38891 (Ketab Protocol) and kind 30040 (Alexandria/NIP-62) side by side. Same `d` tag links both events. Readers on Alexandria clients see the book; readers on Ketab clients get the full card experience.
-
 ## City Protocol Integration
 
 Ketab events can reference City Protocol block events for timestamps:
