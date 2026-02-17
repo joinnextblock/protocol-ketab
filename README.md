@@ -4,62 +4,55 @@ Composable interactive stories on Nostr.
 
 ## The Problem
 
-Publishing on Nostr today stops at the article. You can write a chapter, sign it, and publish it. Readers can zap the whole thing. But the ideas inside — the individual claims, the sourced passages, the moments that change someone's mind — are trapped inside the article body. You can't point to them. You can't engage with them independently. You can't pull one out and place it next to a passage from a different author without copy-pasting and breaking attribution.
+Nostr publishing stops at the article. You sign a chapter, publish it, readers zap the whole thing. But the ideas inside — the claims, the sourced passages, the moments that shift how someone sees the world — they're trapped in the body text. No address. No independent engagement. No way to pull one out and set it next to a passage from another author without copy-pasting and killing the attribution chain.
 
-Articles are containers. The ideas inside them have no identity of their own.
+Articles are containers. The ideas inside have no identity.
 
 ## The Ketab
 
-A **ketab** is a signed Nostr event (kind 38893) that carries exactly one thought. One claim. One passage. 150–300 words with sourced footnotes.
+A **ketab** is kind 38893. One signed event. One thought. One passage with sourced footnotes.
 
-Every ketab is:
+Every ketab has its own `naddr`. Its own engagement — zaps, comments, highlights, reposts. Its own cryptographic attribution. You can verify who wrote it without trusting anyone.
 
-- **Individually addressable** — its own `naddr`, its own URL, its own OG metadata
-- **Independently engageable** — zap it, comment on it, highlight it, repost it
-- **Cryptographically attributed** — signed by its author, verifiable by anyone
-- **Composable** — a librarian can pull ketab 4 from one book and ketab 12 from another into a curated reading list. No copy-paste. No broken attribution. No aggregator in the middle.
+And they compose. A librarian pulls ketab 4 from one book and ketab 12 from another into a curated reading list. No aggregator. No copy-paste. No broken signatures. The original author's event, referenced in place.
 
-Books are composed from ketabs. Ketabs can be recomposed across books. The atomic unit of a book is no longer the chapter — it's the thought.
+Books are made of ketabs. Ketabs can be recomposed across books. The atomic unit of a book is the thought, not the chapter.
 
-## The Spirit
+## Why This Way
 
-Ketab Protocol exists because ideas should be citable at the level they're expressed. A footnoted claim about Columbus shipping enslaved people from Hispaniola in 1495 deserves its own address — not because it's a tweet, but because it's a verifiable unit of knowledge that readers should be able to engage with, challenge, and build on.
+Tags route. Content describes. Single-letter tags only — `d`, `a`, `p`, `e`, `t` — for relay filtering. All metadata lives in the content field as structured JSON.
 
-The protocol makes no assumptions about how ketabs are rendered. Cards, scrolls, audio, AR — that's the client's job. The protocol's job is to make every thought addressable, every source verifiable, and every engagement attributable to the specific idea that earned it.
+Most Nostr kinds do the opposite. They put title, summary, description in tags so relays can filter on them. That turns relays into queryable databases. We keep relays dumb. One JSON parse gives the client everything. No reassembling metadata from scattered tags.
 
-## Design Principles
+Exception: kind 30023 chapters follow NIP-23. Interop trumps preferences.
 
-**Single-letter tags only.** Tags exist for relay indexing: `d`, `a`, `p`, `e`, `t`. No `title`, `summary`, or `description` in tags. All metadata lives in the content field as structured JSON. This is the inverse of how most Nostr kinds work, and it's intentional — tags are for machines, content is for meaning.
+Position is explicit. Ketab ordering comes from the `index` field in content JSON. Not tag order. Not timestamps. Not relay response order. If you can't trust the position, you can't trust the story.
 
-Exception: kind 30023 chapters follow NIP-23 spec. Interop trumps our preferences.
-
-**Position is explicit, never inferred.** Ketab ordering comes from the `index` field in content JSON, not from tag order, not from `created_at` timestamps, not from relay response order. If you can't trust the position, you can't trust the story.
-
-**Engagement belongs to the thought, not the container.** When someone zaps a ketab, the zap targets that specific passage's coordinate — not the chapter, not the book. Authors see exactly which ideas resonate. Readers see exactly what they're paying for.
+Engagement belongs to the thought. When someone zaps a ketab, the zap targets that passage's coordinate. Not the chapter. Not the book. Authors see which ideas resonate. Readers see what they're paying for.
 
 ## Structure
 
-Four event kinds, four layers:
+Five event kinds:
 
-| Kind | Name | What It Is |
-|------|------|-----------|
-| 38890 | Library | A librarian's curated collection of books |
-| 38891 | Book | A book — metadata + ordered chapter references |
+| Kind | Name | What It Does |
+|------|------|-------------|
+| 38890 | Library | A curated collection of books |
+| 38891 | Book | Metadata + ordered chapter references |
 | 38892 | Library Entry | A book added to someone's personal library |
 | 38893 | Ketab | One thought. The atomic unit. |
 | 30023 | Chapter | NIP-23 long-form content (compiled view of ketabs) |
 
-Three actors:
+Three roles:
 
 - **Authors** create books and ketabs
 - **Librarians** curate books into libraries
 - **Readers** engage per-ketab
 
-A single pubkey can play all three roles.
+One pubkey can play all three.
 
 ## Specification
 
-Full event schemas, tag definitions, content JSON formats, and discovery flows: **[PROTOCOL.md](./PROTOCOL.md)**
+Event schemas, tag definitions, content JSON formats, discovery flows: **[PROTOCOL.md](./PROTOCOL.md)**
 
 ## Packages
 
