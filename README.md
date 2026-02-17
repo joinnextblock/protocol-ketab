@@ -2,135 +2,63 @@
 
 Composable interactive stories on Nostr.
 
-## Why
+## The Problem
 
-Nostr publishing works at the article level. You can publish a chapter. You can zap a chapter. But you can't address, cite, or engage with a single passage inside it.
+Publishing on Nostr today stops at the article. You can write a chapter, sign it, and publish it. Readers can zap the whole thing. But the ideas inside — the individual claims, the sourced passages, the moments that change someone's mind — are trapped inside the article body. You can't point to them. You can't engage with them independently. You can't pull one out and place it next to a passage from a different author without copy-pasting and breaking attribution.
 
-Ketab Protocol adds the layer below. A **ketab** (kind 38893) is an atomic content unit — one thought, individually signed, addressable by `naddr`, and engageable on its own. Books are composed from ketabs. Ketabs can be recomposed across books. Every ketab carries its own engagement (zaps, comments, highlights) independent of the chapter it belongs to.
+Articles are containers. The ideas inside them have no identity of their own.
 
-This makes content **composable at the passage level**. A librarian can curate a reading list that pulls ketab 4 from one book, ketab 12 from another, and ketab 1 from a third — each one a verified Nostr event from its original author. No copy-paste, no broken attribution, no aggregator in the middle.
+## The Ketab
 
-## Four Layers
+A **ketab** is a signed Nostr event (kind 38893) that carries exactly one thought. One claim. One passage. 150–300 words with sourced footnotes.
 
-| Kind | Name | Description |
-|------|------|-------------|
-| **38890** | Library | Collection of books, curated by a librarian |
-| **38891** | Book | Metadata + ordered chapter references |
-| **38893** | Ketab | Atomic content unit — one card, one thought |
-| 30023 | Chapter | NIP-23 long-form content (Nostr-native, compiles ketabs) |
+Every ketab is:
 
-Ketabs (38893) are the source of truth. Chapters (30023) are compiled views — the same content assembled for long-form readers. Both must produce identical markdown.
+- **Individually addressable** — its own `naddr`, its own URL, its own OG metadata
+- **Independently engageable** — zap it, comment on it, highlight it, repost it
+- **Cryptographically attributed** — signed by its author, verifiable by anyone
+- **Composable** — a librarian can pull ketab 4 from one book and ketab 12 from another into a curated reading list. No copy-paste. No broken attribution. No aggregator in the middle.
 
-## Three Actors
+Books are composed from ketabs. Ketabs can be recomposed across books. The atomic unit of a book is no longer the chapter — it's the thought.
 
-- **Authors** publish books and ketabs. They create the content.
-- **Librarians** curate books into libraries with personal metadata (notes, ratings, tags).
-- **Readers** engage per-ketab: zaps, comments, highlights, reposts.
+## The Spirit
+
+Ketab Protocol exists because ideas should be citable at the level they're expressed. A footnoted claim about Columbus shipping enslaved people from Hispaniola in 1495 deserves its own address — not because it's a tweet, but because it's a verifiable unit of knowledge that readers should be able to engage with, challenge, and build on.
+
+The protocol makes no assumptions about how ketabs are rendered. Cards, scrolls, audio, AR — that's the client's job. The protocol's job is to make every thought addressable, every source verifiable, and every engagement attributable to the specific idea that earned it.
+
+## Design Principles
+
+**Single-letter tags only.** Tags exist for relay indexing: `d`, `a`, `p`, `e`, `t`. No `title`, `summary`, or `description` in tags. All metadata lives in the content field as structured JSON. This is the inverse of how most Nostr kinds work, and it's intentional — tags are for machines, content is for meaning.
+
+Exception: kind 30023 chapters follow NIP-23 spec. Interop trumps our preferences.
+
+**Position is explicit, never inferred.** Ketab ordering comes from the `index` field in content JSON, not from tag order, not from `created_at` timestamps, not from relay response order. If you can't trust the position, you can't trust the story.
+
+**Engagement belongs to the thought, not the container.** When someone zaps a ketab, the zap targets that specific passage's coordinate — not the chapter, not the book. Authors see exactly which ideas resonate. Readers see exactly what they're paying for.
+
+## Structure
+
+Four event kinds, four layers:
+
+| Kind | Name | What It Is |
+|------|------|-----------|
+| 38890 | Library | A librarian's curated collection of books |
+| 38891 | Book | A book — metadata + ordered chapter references |
+| 38893 | Ketab | One thought. The atomic unit. |
+| 30023 | Chapter | NIP-23 long-form content (compiled view of ketabs) |
+
+Three actors:
+
+- **Authors** create books and ketabs
+- **Librarians** curate books into libraries
+- **Readers** engage per-ketab
 
 A single pubkey can play all three roles.
 
-## Ketab Event (Kind 38893)
+## Specification
 
-The ketab is the core innovation. Each ketab is:
-- A standalone, individually addressable Nostr event
-- One card in the reading experience
-- Citable via `naddr` with its own URL, OG tags, and engagement
-- Ordered by `index` field in content (0-based)
-
-```json
-{
-  "kind": 38893,
-  "tags": [
-    ["d", "<uuid>"],
-    ["a", "30023:<author-pubkey>:<chapter-uuid>", "<relay>"],
-    ["t", "ketab"],
-    ["t", "nonfiction"]
-  ],
-  "content": "{\"title\":\"The Slave Markets of Seville\",\"index\":4,\"body\":\"By 1495, Columbus had shipped...\\n\\n---\\n\\n**Sources**\\n\\n1. Las Casas, *Historia de las Indias*, Book I, Ch. 88\"}"
-}
-```
-
-### Content JSON
-
-```typescript
-{
-  title: string;    // Ketab title
-  index: number;    // 0-based position within chapter
-  body: string;     // Markdown body + optional footnotes after ---
-}
-```
-
-### Hard Rules
-
-- **Tags are single-letter only.** `d`, `a`, `p`, `e`, `t` — for relay indexing. No multi-letter tags (`title`, `summary`, `description`, `published_at`). Ever. Exception: kind 30023 chapters follow NIP-23 spec (interop trumps our preferences).
-- **Content is JSON only.** All metadata lives in the content field as structured JSON. This is the inverse of how most NIPs work, and it's intentional. Exception: kind 30023 content is markdown per NIP-23.
-- **Tag order NEVER determines position.** Ordering comes from `index` field in content JSON.
-- **`index` is 0-based.** Ketabs are arrays of events. Display adds +1 for humans.
-- **Each ketab references its parent chapter** via `a` tag: `['a', '30023:<pubkey>:<chapter-uuid>', '<relay>']`
-
-## Book Event (Kind 38891)
-
-```json
-{
-  "kind": 38891,
-  "tags": [
-    ["d", "<book-uuid>"],
-    ["a", "30023:<pubkey>:<ch1-uuid>"],
-    ["a", "30023:<pubkey>:<ch2-uuid>"],
-    ["p", "<author-pubkey>"],
-    ["t", "book"]
-  ],
-  "content": "{\"title\":\"The Copper Islands\",\"subtitle\":\"...\",\"author\":\"NextBlock\",\"summary\":\"...\",\"description\":\"...\",\"image\":\"\"}"
-}
-```
-
-Chapter ordering in book events follows `a` tag order (books reference chapters, not the other way around).
-
-## Library Event (Kind 38890)
-
-```json
-{
-  "kind": 38890,
-  "tags": [
-    ["d", "<library-uuid>"],
-    ["a", "38891:<pubkey>:<book1-uuid>"],
-    ["a", "38891:<pubkey>:<book2-uuid>"],
-    ["t", "library"]
-  ],
-  "content": "{\"name\":\"the library\",\"description\":\"Books published on Nostr. Read by citizens.\"}"
-}
-```
-
-## Engagement
-
-Ketab-level engagement is the core requirement. Standard Nostr kinds:
-
-| Kind | Purpose |
-|------|---------|
-| 1111 | Comments (NIP-22, threaded) |
-| 9802 | Highlights (NIP-84) |
-| 9735 | Zap receipts (NIP-57) |
-| 6 | Reposts (NIP-18) |
-
-All reference the ketab's `a` coordinate: `38893:<pubkey>:<ketab-uuid>`
-
-## Client Discovery
-
-1. Fetch book event (38891) by `naddr`
-2. Extract chapter `a` tags → fetch chapters (30023)
-3. For each chapter, fetch sibling ketabs (38893) via parent `a` tag
-4. Sort ketabs by `index` field in content JSON
-5. Each ketab is individually addressable via `naddr`
-
-## City Protocol Integration
-
-Ketab events can reference City Protocol block events for timestamps:
-
-```
-Block coordinate: 38808:<clock_pubkey>:org.cityprotocol:block:<height>:<hash>
-```
-
-Books published on Bitcoin time.
+Full event schemas, tag definitions, content JSON formats, and discovery flows: **[PROTOCOL.md](./PROTOCOL.md)**
 
 ## Packages
 
@@ -139,9 +67,9 @@ Books published on Bitcoin time.
 
 ## Related
 
-- [City Protocol](https://github.com/joinnextblock/protocol-city) — Block-aware domains
-- [ATTN Protocol](https://github.com/joinnextblock/protocol-attn) — Attention marketplace
-- [Dynasty Protocol](https://github.com/joinnextblock/protocol-dynasty) — Sovereign genealogy
+- [City Protocol](https://github.com/joinnextblock/protocol-city) — Block-aware domains on Nostr
+- [ATTN Protocol](https://github.com/joinnextblock/protocol-attn) — Decentralized attention marketplace
+- [Dynasty Protocol](https://github.com/joinnextblock/protocol-dynasty) — Sovereign genealogy on Nostr
 
 ## License
 
