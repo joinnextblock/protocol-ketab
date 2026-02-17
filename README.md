@@ -4,7 +4,7 @@ Composable interactive stories on Nostr.
 
 ## Why
 
-Existing Nostr publishing (NIP-23, Alexandria/NIP-62) works at the article level. You can publish a chapter. You can zap a chapter. But you can't address, cite, or engage with a single passage inside it.
+Nostr publishing works at the article level. You can publish a chapter. You can zap a chapter. But you can't address, cite, or engage with a single passage inside it.
 
 Ketab Protocol adds the layer below. A **ketab** (kind 38893) is an atomic content unit — one thought, individually signed, addressable by `naddr`, and engageable on its own. Books are composed from ketabs. Ketabs can be recomposed across books. Every ketab carries its own engagement (zaps, comments, highlights) independent of the chapter it belongs to.
 
