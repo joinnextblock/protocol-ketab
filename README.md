@@ -2,11 +2,13 @@
 
 Composable interactive stories on Nostr.
 
-## What It Is
+## Why
 
-Ketab Protocol defines four event kinds for publishing books as native Nostr content. Every piece — from a single passage to an entire library — is a signed Nostr event that can be fetched, verified, and engaged with independently.
+Existing Nostr publishing (NIP-23, Alexandria/NIP-62) works at the article level. You can publish a chapter. You can zap a chapter. But you can't address, cite, or engage with a single passage inside it.
 
-**A ketab is the atomic unit.** One card. One citable thought. 150–300 words with sourced footnotes on the back. Books are made of ketabs.
+Ketab Protocol adds the layer below. A **ketab** (kind 38893) is an atomic content unit — one thought, individually signed, addressable by `naddr`, and engageable on its own. Books are composed from ketabs. Ketabs can be recomposed across books. Every ketab carries its own engagement (zaps, comments, highlights) independent of the chapter it belongs to.
+
+This makes content **composable at the passage level**. A librarian can curate a reading list that pulls ketab 4 from one book, ketab 12 from another, and ketab 1 from a third — each one a verified Nostr event from its original author. No copy-paste, no broken attribution, no aggregator in the middle.
 
 ## Four Layers
 
