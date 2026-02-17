@@ -1,4 +1,4 @@
-# Ketab Protocol Specification (LIBRARY-01)
+# Ketab Protocol Specification (KETAB-01)
 
 > Composable interactive stories on Nostr.
 
@@ -66,7 +66,7 @@ The atomic unit. One signed event. One passage. Individually addressable, citabl
 | Tag | Required | Description |
 |-----|----------|-------------|
 | `d` | Yes | Unique identifier (UUID) |
-| `a` | Yes (repeated) | Chapter coordinates in reading order: `30023:<pubkey>:<chapter-d-tag>` |
+| `a` | Yes (repeated) | Chapter coordinates (for relay indexing): `30023:<pubkey>:<chapter-d-tag>` |
 | `p` | Yes | Author pubkey |
 | `t` | No | Topic tags |
 
@@ -108,7 +108,7 @@ Chapter ordering is defined by the `chapters` array in content JSON, not by `a` 
 | Tag | Required | Description |
 |-----|----------|-------------|
 | `d` | Yes | Unique identifier (UUID) |
-| `a` | Yes (repeated) | Book coordinates: `38891:<pubkey>:<book-d-tag>` |
+| `a` | Yes (repeated) | Book coordinates (for relay indexing): `38891:<pubkey>:<book-d-tag>` |
 | `t` | No | Topic tags |
 
 ### Content (JSON)
@@ -116,9 +116,15 @@ Chapter ordering is defined by the `chapters` array in content JSON, not by `a` 
 ```json
 {
   "name": "the library",
-  "description": "Books published on Nostr. Read by citizens."
+  "description": "Books published on Nostr. Read by citizens.",
+  "books": [
+    { "d": "<book1-uuid>", "title": "The Copper Islands" },
+    { "d": "<book2-uuid>", "title": "The Attention Protocol" }
+  ]
 }
 ```
+
+Book ordering is defined by the `books` array in content JSON, not by `a` tag order.
 
 ---
 
@@ -137,7 +143,7 @@ Chapters are compiled views of ketabs. Follows NIP-23 spec.
 
 ### Content
 
-Markdown. Must produce identical output to the concatenation of its ketabs' body fields (separated by `\n\n---\n\n`).
+Markdown. Should produce identical output to the concatenation of its ketabs' body fields (separated by `\n\n---\n\n`). Ketabs are the source of truth; chapters are the compiled view.
 
 ---
 
@@ -179,7 +185,7 @@ All reference the target's `a` coordinate.
 ### From a book `naddr`:
 
 1. Decode `naddr` → fetch kind 38891 event
-2. Read `a` tags → list of chapter coordinates
+2. Parse content JSON → read `chapters` array for ordered chapter list
 3. Fetch chapters (kind 30023) by `#d` filter
 4. For each chapter, fetch ketabs (kind 38893) with `#a` filter matching `30023:<pubkey>:<chapter-d-tag>`
 5. Sort ketabs by `index` in content JSON
