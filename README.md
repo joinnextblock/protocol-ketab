@@ -62,7 +62,8 @@ The ketab is the core innovation. Each ketab is:
 
 ### Hard Rules
 
-- **Tags are for indexing only.** Content field carries ALL metadata. No `title`, `summary`, or `description` in tags.
+- **Tags are single-letter only.** `d`, `a`, `p`, `e`, `t` — for relay indexing. No multi-letter tags (`title`, `summary`, `description`, `published_at`). Ever.
+- **Content is JSON only.** All metadata lives in the content field as structured JSON. This is the inverse of how most NIPs work, and it's intentional.
 - **Tag order NEVER determines position.** Ordering comes from `index` field in content JSON.
 - **`index` is 0-based.** Ketabs are arrays of events. Display adds +1 for humans.
 - **Each ketab references its parent chapter** via `a` tag: `['a', '30023:<pubkey>:<chapter-uuid>', '<relay>']`
