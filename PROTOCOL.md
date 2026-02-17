@@ -79,7 +79,11 @@ The atomic unit. One signed event. One passage. Individually addressable, citabl
   "author": "NextBlock",
   "summary": "Short summary for previews.",
   "description": "Full description with details.",
-  "image": "https://..."
+  "image": "https://...",
+  "chapters": [
+    { "d": "<ch1-uuid>", "title": "The Slave Port" },
+    { "d": "<ch2-uuid>", "title": "The Papal Bull" }
+  ]
 }
 ```
 
@@ -91,8 +95,9 @@ The atomic unit. One signed event. One passage. Individually addressable, citabl
 | `summary` | string | Short preview text |
 | `description` | string | Full description |
 | `image` | string | Cover image URL |
+| `chapters` | array | Ordered list of chapter references (authoritative order) |
 
-Chapter ordering follows `a` tag order in the book event.
+Chapter ordering is defined by the `chapters` array in content JSON, not by `a` tag order. Tags are for relay indexing only.
 
 ---
 
