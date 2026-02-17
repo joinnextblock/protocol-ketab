@@ -111,21 +111,13 @@ Ketab-level engagement is the core requirement. Standard Nostr kinds:
 
 All reference the ketab's `a` coordinate: `38893:<pubkey>:<ketab-uuid>`
 
-## Client Implementation
+## Client Discovery
 
 1. Fetch book event (38891) by `naddr`
 2. Extract chapter `a` tags → fetch chapters (30023)
 3. For each chapter, fetch sibling ketabs (38893) via parent `a` tag
 4. Sort ketabs by `index` field in content JSON
-5. Render as swipeable cards (front: body, back: sources)
-
-### Reading Flow
-
-```
-/the-copper-islands → book page (chapter cards)
-  → tap chapter → /ketab/{naddr} (first ketab)
-    → swipe through ketabs → next chapter → ...
-```
+5. Each ketab is individually addressable via `naddr`
 
 ## Dual Publishing (NKBIP-01)
 
