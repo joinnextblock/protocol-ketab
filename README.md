@@ -45,6 +45,7 @@ Four event kinds, four layers:
 |------|------|-----------|
 | 38890 | Library | A librarian's curated collection of books |
 | 38891 | Book | A book — metadata + ordered chapter references |
+| 38892 | Library Entry | A book added to someone's personal library |
 | 38893 | Ketab | One thought. The atomic unit. |
 | 30023 | Chapter | NIP-23 long-form content (compiled view of ketabs) |
 

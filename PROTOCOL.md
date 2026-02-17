@@ -8,6 +8,7 @@
 |------|------|------|-------------|
 | 38890 | Library | Replaceable | Collection of books curated by a librarian |
 | 38891 | Book | Replaceable | Book metadata + ordered chapter references |
+| 38892 | Library Entry | Replaceable | A book added to someone's personal library |
 | 38893 | Ketab | Replaceable | Atomic content unit — one thought, one card |
 | 30023 | Chapter | Replaceable | NIP-23 long-form content (compiled from ketabs) |
 
@@ -125,6 +126,41 @@ Chapter ordering is defined by the `chapters` array in content JSON, not by `a` 
 ```
 
 Book ordering is defined by the `books` array in content JSON, not by `a` tag order.
+
+---
+
+## Kind 38892 — Library Entry
+
+A signal that a book has been added to someone's personal library. Carries the librarian's personal metadata about the book — notes, rating, read status, tags. One entry per book per librarian.
+
+### Tags
+
+| Tag | Required | Description |
+|-----|----------|-------------|
+| `d` | Yes | Unique identifier (UUID) |
+| `a` | Yes | Book coordinate: `38891:<pubkey>:<book-d-tag>` |
+| `p` | No | Book author pubkey |
+| `t` | No | Personal tags |
+
+### Content (JSON)
+
+```json
+{
+  "notes": "Essential reading on the real history of the slave trade.",
+  "rating": 5,
+  "status": "read",
+  "tags": ["history", "primary-sources", "cape-verde"]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `notes` | string | Personal notes about the book |
+| `rating` | number | 1–5 rating (optional) |
+| `status` | string | `want-to-read`, `reading`, `read` (optional) |
+| `tags` | array | Personal tags for organization (optional) |
+
+A library entry is a personal event — it lives on the librarian's relay, not necessarily the book's relay. The `a` tag points back to the book.
 
 ---
 
