@@ -1,124 +1,156 @@
 # Ketab Protocol
 
-Ketab Protocol (LIBRARY-01) is a Nostr-based protocol for organizing native books and library curation.
+Composable interactive stories on Nostr.
 
-## Core Concept
+## What It Is
 
-**Three-Actor Model**: Ketab Protocol is built on three distinct roles (a single pubkey owner can play multiple roles):
-- **Authors** publish books (Book events, kind 38891) organizing NIP-23 chapters into books
-- **Librarians** publish library entries (Library Entry events, kind 38892) to curate books with personal metadata (notes, rating, tags, read status)
-- **Readers** publish comments (kind 1) and snippets (kind 9802) to engage with chapters
+Ketab Protocol defines four event kinds for publishing books as native Nostr content. Every piece — from a single passage to an entire library — is a signed Nostr event that can be fetched, verified, and engaged with independently.
 
-**Native Publishing Only**: Ketab Protocol only supports native Nostr book publishing. Books must be created and published directly on Nostr using NIP-23 chapters. The protocol does not support importing or bringing existing books from external sources (PDFs, EPUBs, etc.) onto Nostr.
+**A ketab is the atomic unit.** One card. One citable thought. 150–300 words with sourced footnotes on the back. Books are made of ketabs.
 
-## Event Kinds
+## Four Layers
 
 | Kind | Name | Description |
 |------|------|-------------|
-| 38890 | Library Event | Book curation container (replaceable) |
-| 38891 | Book Event | Book metadata and chapter organization (replaceable) |
-| 38892 | Library Entry | Library-specific metadata about a curated book (replaceable) |
+| **38890** | Library | Collection of books, curated by a librarian |
+| **38891** | Book | Metadata + ordered chapter references |
+| **38893** | Ketab | Atomic content unit — one card, one thought |
+| 30023 | Chapter | NIP-23 long-form content (Nostr-native, compiles ketabs) |
 
-### Standard Nostr Kinds for Engagement
+Ketabs (38893) are the source of truth. Chapters (30023) are compiled views — the same content assembled for long-form readers. Both must produce identical markdown.
 
-Chapters (NIP-23 events) support engagement through standard Nostr kinds:
-- **Kind 1** - Text Note (reader comments)
-- **Kind 1111** - Comment (threaded comments, NIP-22)
-- **Kind 9802** - Highlights (reader snippets/quotes, NIP-84)
-- **Kind 9735** - Zap Receipt (zap reactions, NIP-57)
-- **Kind 6** - Repost (sharing books/chapters, NIP-18)
+## Three Actors
 
-## Protocol Integration
+- **Authors** publish books and ketabs. They create the content.
+- **Librarians** curate books into libraries with personal metadata (notes, ratings, tags).
+- **Readers** engage per-ketab: zaps, comments, highlights, reposts.
 
-### NextBlock City Integration
+A single pubkey can play all three roles.
 
-Ketab Protocol is integrated into NextBlock City through the `KetabAdapter`. When enabled, the city automatically subscribes to Ketab Protocol events (kinds 38890-38892) and provides hooks for library, book, and library entry events.
+## Ketab Event (Kind 38893)
 
-**Configuration:**
+The ketab is the core innovation. Each ketab is:
+- A standalone, individually addressable Nostr event
+- One card in the reading experience
+- Citable via `naddr` with its own URL, OG tags, and engagement
+- Ordered by `index` field in content (0-based)
+
+```json
+{
+  "kind": 38893,
+  "tags": [
+    ["d", "<uuid>"],
+    ["a", "30023:<author-pubkey>:<chapter-uuid>", "<relay>"],
+    ["t", "ketab"],
+    ["t", "nonfiction"]
+  ],
+  "content": "{\"title\":\"The Slave Markets of Seville\",\"index\":4,\"body\":\"By 1495, Columbus had shipped...\\n\\n---\\n\\n**Sources**\\n\\n1. Las Casas, *Historia de las Indias*, Book I, Ch. 88\"}"
+}
+```
+
+### Content JSON
+
 ```typescript
-const city = new NextBlockCity({
-  signer: window.nostr,
-  protocols: {
-    ketab: true,  // Enable Ketab Protocol hooks (default: true)
-  },
-});
-
-await city.enter();
-
-// Access Ketab adapter
-const ketab_adapter = city.ketab_adapter;  // If exposed
-
-// Register handlers
-ketab_adapter.on_library_event(async (ctx) => {
-  console.log('Library:', ctx.content.name);
-});
-
-ketab_adapter.on_book_event(async (ctx) => {
-  console.log('Book:', ctx.content.title);
-});
-
-ketab_adapter.on_library_entry_event(async (ctx) => {
-  console.log('Library Entry:', ctx.content.notes);
-});
-
-ketab_adapter.start();
+{
+  title: string;    // Ketab title
+  index: number;    // 0-based position within chapter
+  body: string;     // Markdown body + optional footnotes after ---
+}
 ```
 
-**Integration Details:**
-- Adapter: `KetabAdapter` in `@nextblock/city/packages/city/src/adapters/ketab.ts` (to be implemented)
-- Event Kinds: 38890 (Library), 38891 (Book), 38892 (Library Entry)
-- Hooks: `on_library_event()`, `on_book_event()`, `on_library_entry_event()`
+### Hard Rules
 
-**Integration Status:** Ketab Protocol integration is planned. The adapter will be implemented following the pattern established by ATTN, City, and Dynasty protocols.
+- **Tags are for indexing only.** Content field carries ALL metadata. No `title`, `summary`, or `description` in tags.
+- **Tag order NEVER determines position.** Ordering comes from `index` field in content JSON.
+- **`index` is 0-based.** Ketabs are arrays of events. Display adds +1 for humans.
+- **Each ketab references its parent chapter** via `a` tag: `['a', '30023:<pubkey>:<chapter-uuid>', '<relay>']`
 
-See [NextBlock City Protocol Integration Guide](../nextblock-city/PROTOCOL_INTEGRATION.md) for details on how protocols integrate.
+## Book Event (Kind 38891)
 
-### City Protocol Integration
+```json
+{
+  "kind": 38891,
+  "tags": [
+    ["d", "<book-uuid>"],
+    ["a", "30023:<pubkey>:<ch1-uuid>"],
+    ["a", "30023:<pubkey>:<ch2-uuid>"],
+    ["p", "<author-pubkey>"],
+    ["t", "book"]
+  ],
+  "content": "{\"title\":\"The Copper Islands\",\"subtitle\":\"...\",\"author\":\"NextBlock\",\"summary\":\"...\",\"description\":\"...\",\"image\":\"\"}"
+}
+```
 
-Ketab Protocol integrates with City Protocol for block synchronization. Library events reference City block events for timing:
+Chapter ordering in book events follows `a` tag order (books reference chapters, not the other way around).
+
+## Library Event (Kind 38890)
+
+```json
+{
+  "kind": 38890,
+  "tags": [
+    ["d", "<library-uuid>"],
+    ["a", "38891:<pubkey>:<book1-uuid>"],
+    ["a", "38891:<pubkey>:<book2-uuid>"],
+    ["t", "library"]
+  ],
+  "content": "{\"name\":\"the library\",\"description\":\"Books published on Nostr. Read by citizens.\"}"
+}
+```
+
+## Engagement
+
+Ketab-level engagement is the core requirement. Standard Nostr kinds:
+
+| Kind | Purpose |
+|------|---------|
+| 1111 | Comments (NIP-22, threaded) |
+| 9802 | Highlights (NIP-84) |
+| 9735 | Zap receipts (NIP-57) |
+| 6 | Reposts (NIP-18) |
+
+All reference the ketab's `a` coordinate: `38893:<pubkey>:<ketab-uuid>`
+
+## Client Implementation
+
+1. Fetch book event (38891) by `naddr`
+2. Extract chapter `a` tags → fetch chapters (30023)
+3. For each chapter, fetch sibling ketabs (38893) via parent `a` tag
+4. Sort ketabs by `index` field in content JSON
+5. Render as swipeable cards (front: body, back: sources)
+
+### Reading Flow
 
 ```
-Block Event Coordinate: 38808:<clock_pubkey>:org.cityprotocol:block:<height>:<hash>
+/the-copper-islands → book page (chapter cards)
+  → tap chapter → /ketab/{naddr} (first ketab)
+    → swipe through ketabs → next chapter → ...
 ```
 
-This allows libraries to operate on Bitcoin time without needing their own block event infrastructure.
+## Dual Publishing (NKBIP-01)
+
+Books publish both kind 38891 (Ketab Protocol) and kind 30040 (Alexandria/NIP-62) side by side. Same `d` tag links both events. Readers on Alexandria clients see the book; readers on Ketab clients get the full card experience.
+
+## City Protocol Integration
+
+Ketab events can reference City Protocol block events for timestamps:
+
+```
+Block coordinate: 38808:<clock_pubkey>:org.cityprotocol:block:<height>:<hash>
+```
+
+Books published on Bitcoin time.
 
 ## Packages
 
-This monorepo contains the core Ketab Protocol packages:
+- `@ketab/core` — TypeScript types and constants
+- `@ketab/sdk` — Event construction, signing, publishing
 
-- `@ketab/core` - TypeScript types and constants (no runtime code)
-- `@ketab/sdk` - Event construction utilities, Nostr signing/publishing
+## Related
 
-The protocol specification is at [PROTOCOL.md](./PROTOCOL.md).
-
-## Development
-
-This project uses npm workspaces for local development.
-
-### Setup
-
-```bash
-npm install
-```
-
-### Type Check
-
-```bash
-npm run typecheck
-```
-
-### Working with Workspaces
-
-- Install dependency in specific package: `npm install <package> --workspace=@ketab/core`
-- Run script in specific package: `npm run <script> --workspace=@ketab/core`
-- Run script in all packages: `npm run <script>` (from root)
-
-## Related Projects
-
-- [City Protocol](https://github.com/joinnextblock/city-protocol) - Block-aware domain protocol that Ketab Protocol references for timing
-- [ATTN Protocol](https://github.com/joinnextblock/attn-protocol) - Decentralized attention marketplace
-- [Nostr Protocol](https://github.com/nostr-protocol/nips)
+- [City Protocol](https://github.com/joinnextblock/protocol-city) — Block-aware domains
+- [ATTN Protocol](https://github.com/joinnextblock/protocol-attn) — Attention marketplace
+- [Dynasty Protocol](https://github.com/joinnextblock/protocol-dynasty) — Sovereign genealogy
 
 ## License
 
