@@ -9,5 +9,8 @@ export * from "./events/library.js";
 export * from "./events/book.js";
 export * from "./events/entry.js";
 
+// Validation
+export { KetabValidationError } from "./events/validate.js";
+
 // Signing utilities
 export * from "./signing/index.js";

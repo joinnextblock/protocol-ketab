@@ -2,6 +2,7 @@ import type { LibraryEntryContent, LibraryEntryId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
 import { KIND_LIBRARY_ENTRY, KIND_BOOK, KIND_LIBRARY } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
+import { validate_entry_inputs } from "./validate.js";
 
 /**
  * Build a Library Entry Event (Kind 38892)
@@ -27,6 +28,8 @@ export interface BuildLibraryEntryEventOptions {
 export function build_library_entry_event(
   options: BuildLibraryEntryEventOptions
 ): Omit<BaseNostrEvent, "id" | "sig"> {
+  validate_entry_inputs({ secret_key: options.secret_key, library_owner_pubkey: options.library_owner_pubkey, book_slug: options.book_slug, book_author_pubkey: options.book_author_pubkey, content: options.content as unknown as Record<string, unknown> });
+
   const { secret_key, library_owner_pubkey, book_slug, content, book_author_pubkey, created_at = Math.floor(Date.now() / 1000) } = options;
 
   const entry_identifier: LibraryEntryId = `${library_owner_pubkey}:${book_slug}`;

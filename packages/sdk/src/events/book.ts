@@ -2,6 +2,7 @@ import type { BookContent, BookId } from "@ketab/core";
 import type { BaseNostrEvent } from "@ketab/core";
 import { KIND_BOOK } from "@ketab/core";
 import { get_public_key } from "../signing/index.js";
+import { validate_book_inputs } from "./validate.js";
 
 /**
  * Build a Book Event (Kind 38891)
@@ -23,6 +24,8 @@ export interface BuildBookEventOptions {
 export function build_book_event(
   options: BuildBookEventOptions
 ): Omit<BaseNostrEvent, "id" | "sig"> {
+  validate_book_inputs({ secret_key: options.secret_key, book_id: options.book_id, content: options.content as unknown as Record<string, unknown> });
+
   const { secret_key, book_id, content, created_at = Math.floor(Date.now() / 1000) } = options;
 
   const book_identifier: BookId = book_id;
