@@ -63,7 +63,7 @@ func (b *Builder) BuildChapter(bk *book.Book, ch *book.Chapter) nostr.Event {
 	// Build tags
 	tags := nostr.Tags{
 		{"d", ch.Metadata.ChapterUUID},
-		{"title", ch.Metadata.ChapterTitle},
+		{"title", fmt.Sprintf("Chapter %s: %s", ch.Metadata.ChapterNumber, ch.Metadata.ChapterTitle)},
 		{"published_at", fmt.Sprintf("%d", time.Now().Unix())},
 		// Reference parent book
 		{"a", fmt.Sprintf("%d:%s:%s", KindBook, b.pubkey, bk.Metadata.BookUUID), b.relay_hint},
@@ -92,8 +92,8 @@ type BookContent struct {
 	CoverImageURL string      `json:"cover_image_url,omitempty"`
 	PublishedAt   int64       `json:"published_at"`
 	ChapterCount  int         `json:"chapter_count"`
-	Chapters      interface{} `json:"chapters"` // From book-shape.json
-	Acts          interface{} `json:"acts,omitempty"`
+	Chapters      any `json:"chapters"` // From book-shape.json
+	Acts          any `json:"acts,omitempty"`
 	RefBookPubkey string      `json:"ref_book_pubkey"`
 	RefBookID     string      `json:"ref_book_id"`
 	RefBlockID    string      `json:"ref_block_id,omitempty"`

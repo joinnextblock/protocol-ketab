@@ -73,7 +73,7 @@ func ValidateLibraryEvent(event *nostr.Event) ValidationResult {
 	}
 
 	// Content must be valid JSON
-	var content_data map[string]interface{}
+	var content_data map[string]any
 	if err := json.Unmarshal([]byte(event.Content), &content_data); err != nil {
 		return ValidationResult{Valid: false, Message: "Content must be valid JSON"}
 	}
@@ -133,7 +133,7 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 	}
 
 	// Content must be valid JSON
-	var content_data map[string]interface{}
+	var content_data map[string]any
 	if err := json.Unmarshal([]byte(event.Content), &content_data); err != nil {
 		return ValidationResult{Valid: false, Message: "Content must be valid JSON"}
 	}
@@ -168,7 +168,7 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 	if !ok {
 		return ValidationResult{Valid: false, Message: "Content must include 'chapters' array"}
 	}
-	if _, ok := chapters.([]interface{}); !ok {
+	if _, ok := chapters.([]any); !ok {
 		return ValidationResult{Valid: false, Message: "Content field 'chapters' must be an array"}
 	}
 
@@ -228,7 +228,7 @@ func ValidateLibraryEntryEvent(event *nostr.Event) ValidationResult {
 	}
 
 	// Content must be valid JSON
-	var content_data map[string]interface{}
+	var content_data map[string]any
 	if err := json.Unmarshal([]byte(event.Content), &content_data); err != nil {
 		return ValidationResult{Valid: false, Message: "Content must be valid JSON"}
 	}

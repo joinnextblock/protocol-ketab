@@ -5,11 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/joinnextblock/ketab-protocol/cli/internal/book"
 	"github.com/joinnextblock/ketab-protocol/cli/internal/events"
 	"github.com/joinnextblock/ketab-protocol/cli/internal/types"
@@ -38,7 +35,7 @@ func main() {
 		Args:  cobra.ExactArgs(1),
 		RunE:  run_publish,
 	}
-	publish_cmd.Flags().StringVar(&flag_nsec, "nsec", "", "Author nsec (or set ARCHITECT_NSEC env)")
+	publish_cmd.Flags().StringVar(&flag_nsec, "nsec", "", "Author nsec (or set KETAB_NSEC env)")
 	publish_cmd.Flags().StringVar(&flag_chapters, "chapters", "", "Comma-separated chapter numbers (default: all)")
 	publish_cmd.Flags().BoolVar(&flag_dry_run, "dry-run", false, "Generate events without publishing")
 	publish_cmd.Flags().StringVar(&flag_relays, "relays", strings.Join(types.DefaultRelays, ","), "Comma-separated relay URLs")
@@ -66,30 +63,14 @@ func main() {
 	}
 }
 
-func resolve_nsec(book_dir string) (string, error) {
-	// Flag first
+func resolve_nsec() (string, error) {
 	if flag_nsec != "" {
 		return flag_nsec, nil
 	}
-
-	// Env
-	if v := os.Getenv("ARCHITECT_NSEC"); v != "" {
+	if v := os.Getenv("KETAB_NSEC"); v != "" {
 		return v, nil
 	}
-
-	// .env in book dir
-	env_path := filepath.Join(book_dir, ".env")
-	if _, err := os.Stat(env_path); err == nil {
-		godotenv.Load(env_path)
-		if v := os.Getenv("ARCHITECT_NSEC"); v != "" {
-			return v, nil
-		}
-		if v := os.Getenv("AUTHOR_NSEC"); v != "" {
-			return v, nil
-		}
-	}
-
-	return "", fmt.Errorf("no nsec found — use --nsec, ARCHITECT_NSEC env, or .env in book dir")
+	return "", fmt.Errorf("no nsec found — use --nsec flag or KETAB_NSEC env")
 }
 
 func decode_nsec(nsec_str string) (string, string, error) {
@@ -139,7 +120,7 @@ func run_publish(cmd *cobra.Command, args []string) error {
 	book_dir := args[0]
 	relays := strings.Split(flag_relays, ",")
 
-	nsec_str, err := resolve_nsec(book_dir)
+	nsec_str, err := resolve_nsec()
 	if err != nil {
 		return err
 	}
@@ -259,7 +240,6 @@ func run_publish(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   /book/%s\n", naddr)
 	}
 
-	_ = time.Now() // keep import
 	return nil
 }
 
