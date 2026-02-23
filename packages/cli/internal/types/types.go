@@ -12,7 +12,6 @@ type BookMetadata struct {
 	Thumb       string            `json:"thumb,omitempty"`
 	Signer      string            `json:"signer,omitempty"`
 	BookUUID    string            `json:"book_uuid"`
-	RefBlockID  string            `json:"ref_block_id,omitempty"`
 	Acts        []ActRef          `json:"acts"`
 }
 
@@ -41,11 +40,10 @@ type ActRef struct {
 
 // BookShape represents the book-shape.json file structure.
 type BookShape struct {
-	Title       string         `json:"title"`
-	Description string         `json:"description"`
-	Image       string         `json:"image,omitempty"`
-	Chapters    []ShapeChapter `json:"chapters"`
-	Acts        []ShapeAct     `json:"acts"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	Image       string           `json:"image,omitempty"`
+	Shape       [][]ShapeChapter `json:"shape"`
 }
 
 // ShapeChapter is a chapter in book-shape.json.
@@ -59,12 +57,6 @@ type ShapeChapter struct {
 type ShapeKetab struct {
 	Title string `json:"title"`
 	DTag  string `json:"d_tag"`
-}
-
-// ShapeAct is an act in book-shape.json.
-type ShapeAct struct {
-	Title    string         `json:"title"`
-	Chapters []ShapeChapter `json:"chapters"`
 }
 
 // ChapterMetadata represents the chapter-metadata.json file structure.

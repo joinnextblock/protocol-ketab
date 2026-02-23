@@ -91,12 +91,9 @@ type BookContent struct {
 	Author        string      `json:"author"`
 	CoverImageURL string      `json:"cover_image_url,omitempty"`
 	PublishedAt   int64       `json:"published_at"`
-	ChapterCount  int         `json:"chapter_count"`
-	Chapters      any `json:"chapters"` // From book-shape.json
-	Acts          any `json:"acts,omitempty"`
+	Shape         any `json:"shape"` // From book-shape.json
 	RefBookPubkey string      `json:"ref_book_pubkey"`
 	RefBookID     string      `json:"ref_book_id"`
-	RefBlockID    string      `json:"ref_block_id,omitempty"`
 }
 
 // BuildBook builds a book event (kind 38891).
@@ -110,16 +107,13 @@ func (b *Builder) BuildBook(bk *book.Book, chapter_nums []string) nostr.Event {
 		Author:        bk.Metadata.Author,
 		CoverImageURL: bk.Metadata.Image,
 		PublishedAt:   now,
-		ChapterCount:  len(chapter_nums),
 		RefBookPubkey: b.pubkey,
 		RefBookID:     bk.Metadata.BookUUID,
-		RefBlockID:    bk.Metadata.RefBlockID,
 	}
 
 	// Use book-shape.json if available
 	if bk.Shape != nil {
-		content.Chapters = bk.Shape.Chapters
-		content.Acts = bk.Shape.Acts
+		content.Shape = bk.Shape.Shape
 	}
 
 	content_json, _ := json.Marshal(content)

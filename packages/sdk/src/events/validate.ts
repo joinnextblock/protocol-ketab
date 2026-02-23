@@ -53,7 +53,6 @@ export function validate_library_inputs(options: {
   require_string(c.ref_library_pubkey, "content.ref_library_pubkey");
   require_string(c.ref_library_id, "content.ref_library_id");
   require_string(c.ref_clock_pubkey, "content.ref_clock_pubkey");
-  require_string(c.ref_block_id, "content.ref_block_id");
 }
 
 /** Validate book event builder inputs */
@@ -70,16 +69,13 @@ export function validate_book_inputs(options: {
   require_string(c.description, "content.description");
   require_string(c.author, "content.author");
   require_number(c.published_at, "content.published_at");
-  require_number(c.chapter_count, "content.chapter_count");
-
-  if (!Array.isArray(c.chapters) || c.chapters.length === 0) {
-    throw new KetabValidationError("content.chapters must be a non-empty array");
+  if (!Array.isArray(c.shape) || c.shape.length === 0) {
+    throw new KetabValidationError("content.shape must be a non-empty array of acts");
   }
 
   require_string(c.ref_book_pubkey, "content.ref_book_pubkey");
   require_pubkey(c.ref_book_pubkey, "content.ref_book_pubkey");
   require_string(c.ref_book_id, "content.ref_book_id");
-  require_string(c.ref_block_id, "content.ref_block_id");
 }
 
 /** Validate library entry event builder inputs */
@@ -102,5 +98,4 @@ export function validate_entry_inputs(options: {
   require_string(c.ref_book_coordinate, "content.ref_book_coordinate");
   require_string(c.ref_book_pubkey, "content.ref_book_pubkey");
   require_string(c.ref_book_id, "content.ref_book_id");
-  require_string(c.ref_block_id, "content.ref_block_id");
 }

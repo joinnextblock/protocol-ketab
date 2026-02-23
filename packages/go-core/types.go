@@ -26,8 +26,6 @@ var (
 	// ErrMissingRefBookID is returned when ref_book_id is missing.
 	ErrMissingRefBookID = errors.New("ref_book_id is required")
 
-	// ErrMissingRefBlockID is returned when ref_block_id is missing.
-	ErrMissingRefBlockID = errors.New("ref_block_id is required")
 )
 
 // LibraryContent represents the content structure for Library events (kind 38890).
@@ -60,17 +58,11 @@ type LibraryContent struct {
 	// RefClockPubkey is the reference to City Protocol clock pubkey.
 	RefClockPubkey string `json:"ref_clock_pubkey"`
 
-	// RefBlockID is the reference to block event identifier.
-	RefBlockID string `json:"ref_block_id"`
-
 	// BookCount is the total number of books (can be 0).
 	BookCount int `json:"book_count"`
 
 	// ReaderCount is the total number of unique readers (can be 0).
 	ReaderCount int `json:"reader_count"`
-
-	// ChapterCount is the total number of chapters across all books (can be 0).
-	ChapterCount int `json:"chapter_count"`
 }
 
 // Validate checks if the LibraryContent has required fields per LIBRARY-01.
@@ -87,10 +79,21 @@ func (l *LibraryContent) Validate() error {
 	if l.RefLibraryID == "" {
 		return ErrMissingRefLibraryID
 	}
-	if l.RefBlockID == "" {
-		return ErrMissingRefBlockID
-	}
 	return nil
+}
+
+// BookShapeKetab represents a ketab reference in the book shape.
+type BookShapeKetab struct {
+	Title string `json:"title"`
+	DTag  string `json:"d_tag"`
+}
+
+// BookShapeChapter represents a chapter in the book shape.
+type BookShapeChapter struct {
+	Title        string           `json:"title"`
+	DTag         string           `json:"d_tag"`
+	DiscussionID string           `json:"discussion_id,omitempty"`
+	Ketabs       []BookShapeKetab `json:"ketabs"`
 }
 
 // BookContent represents the content structure for Book events (kind 38891).
@@ -117,12 +120,8 @@ type BookContent struct {
 	// PublishedAt is the published timestamp (Unix).
 	PublishedAt int64 `json:"published_at"`
 
-	// ChapterCount is the number of chapters.
-	ChapterCount int `json:"chapter_count"`
-
-	// Chapters is the ordered array of chapter addresses.
-	// Format: ["30023:<author_pubkey>:<chapter_d-tag>", ...]
-	Chapters []string `json:"chapters"`
+	// Shape is the book structure: an array of acts, each act is an array of chapters.
+	Shape [][]BookShapeChapter `json:"shape"`
 
 	// RefBookPubkey is the reference to book pubkey (must match event's pubkey).
 	RefBookPubkey string `json:"ref_book_pubkey"`
@@ -136,8 +135,6 @@ type BookContent struct {
 	// RefLibraryID is the reference to library ID (optional - author's primary library).
 	RefLibraryID string `json:"ref_library_id,omitempty"`
 
-	// RefBlockID is the reference to block event identifier.
-	RefBlockID string `json:"ref_block_id"`
 }
 
 // Validate checks if the BookContent has required fields per LIBRARY-01.
@@ -153,9 +150,6 @@ func (b *BookContent) Validate() error {
 	}
 	if b.RefBookID == "" {
 		return ErrMissingRefBookID
-	}
-	if b.RefBlockID == "" {
-		return ErrMissingRefBlockID
 	}
 	return nil
 }
@@ -194,8 +188,6 @@ type LibraryEntryContent struct {
 	// RefBookID is the reference to book ID.
 	RefBookID string `json:"ref_book_id"`
 
-	// RefBlockID is the reference to block event identifier.
-	RefBlockID string `json:"ref_block_id"`
 }
 
 // Validate checks if the LibraryEntryContent has required fields per LIBRARY-01.
@@ -208,9 +200,6 @@ func (e *LibraryEntryContent) Validate() error {
 	}
 	if e.RefBookID == "" {
 		return ErrMissingRefBookID
-	}
-	if e.RefBlockID == "" {
-		return ErrMissingRefBlockID
 	}
 	return nil
 }

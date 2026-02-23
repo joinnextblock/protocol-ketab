@@ -40,8 +40,8 @@ func ValidateEvent(event *nostr.Event) ValidationResult {
 //
 // Required content fields:
 //   - name, description, founder_pubkey, protocol_version
-//   - ref_library_pubkey, ref_library_id, ref_clock_pubkey, ref_block_id
-//   - book_count, reader_count, chapter_count (can be 0)
+//   - ref_library_pubkey, ref_library_id, ref_clock_pubkey
+//   - book_count, reader_count (can be 0)
 func ValidateLibraryEvent(event *nostr.Event) ValidationResult {
 	if event.Kind != core.KindLibrary {
 		return ValidationResult{Valid: false, Message: fmt.Sprintf("Expected kind %d for Library event, got %d", core.KindLibrary, event.Kind)}
@@ -81,7 +81,7 @@ func ValidateLibraryEvent(event *nostr.Event) ValidationResult {
 	// Check required string fields
 	required_string_fields := []string{
 		"name", "description", "founder_pubkey", "protocol_version",
-		"ref_library_pubkey", "ref_library_id", "ref_clock_pubkey", "ref_block_id",
+		"ref_library_pubkey", "ref_library_id", "ref_clock_pubkey",
 	}
 	for _, field := range required_string_fields {
 		val, ok := content_data[field]
@@ -94,7 +94,7 @@ func ValidateLibraryEvent(event *nostr.Event) ValidationResult {
 	}
 
 	// Check required count fields (can be 0)
-	required_count_fields := []string{"book_count", "reader_count", "chapter_count"}
+	required_count_fields := []string{"book_count", "reader_count"}
 	for _, field := range required_count_fields {
 		if _, ok := content_data[field]; !ok {
 			return ValidationResult{Valid: false, Message: fmt.Sprintf("Content must include '%s'", field)}
@@ -111,8 +111,8 @@ func ValidateLibraryEvent(event *nostr.Event) ValidationResult {
 //   - p: Author pubkey
 //
 // Required content fields:
-//   - title, description, author, published_at, chapter_count, chapters
-//   - ref_book_pubkey, ref_book_id, ref_block_id
+//   - title, description, author, published_at, shape
+//   - ref_book_pubkey, ref_book_id
 //
 // Validation: ref_book_pubkey must match event's pubkey
 func ValidateBookEvent(event *nostr.Event) ValidationResult {
@@ -141,7 +141,7 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 	// Check required string fields
 	required_string_fields := []string{
 		"title", "description", "author",
-		"ref_book_pubkey", "ref_book_id", "ref_block_id",
+		"ref_book_pubkey", "ref_book_id",
 	}
 	for _, field := range required_string_fields {
 		val, ok := content_data[field]
@@ -158,18 +158,13 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 		return ValidationResult{Valid: false, Message: "Content must include 'published_at'"}
 	}
 
-	// Check chapter_count (required, numeric)
-	if _, ok := content_data["chapter_count"]; !ok {
-		return ValidationResult{Valid: false, Message: "Content must include 'chapter_count'"}
-	}
-
-	// Check chapters array (required)
-	chapters, ok := content_data["chapters"]
+	// Check shape array (required — array of acts, each act is an array of chapters)
+	shape, ok := content_data["shape"]
 	if !ok {
-		return ValidationResult{Valid: false, Message: "Content must include 'chapters' array"}
+		return ValidationResult{Valid: false, Message: "Content must include 'shape' array"}
 	}
-	if _, ok := chapters.([]any); !ok {
-		return ValidationResult{Valid: false, Message: "Content field 'chapters' must be an array"}
+	if _, ok := shape.([]any); !ok {
+		return ValidationResult{Valid: false, Message: "Content field 'shape' must be an array"}
 	}
 
 	// Validate ref_book_pubkey matches event's pubkey
@@ -190,7 +185,7 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 //
 // Required content fields:
 //   - added_at
-//   - ref_library_owner_pubkey, ref_library_id, ref_book_coordinate, ref_book_pubkey, ref_book_id, ref_block_id
+//   - ref_library_owner_pubkey, ref_library_id, ref_book_coordinate, ref_book_pubkey, ref_book_id
 func ValidateLibraryEntryEvent(event *nostr.Event) ValidationResult {
 	if event.Kind != core.KindLibraryEntry {
 		return ValidationResult{Valid: false, Message: fmt.Sprintf("Expected kind %d for Library Entry event, got %d", core.KindLibraryEntry, event.Kind)}
@@ -236,7 +231,7 @@ func ValidateLibraryEntryEvent(event *nostr.Event) ValidationResult {
 	// Check required string fields
 	required_string_fields := []string{
 		"ref_library_owner_pubkey", "ref_library_id", "ref_book_coordinate",
-		"ref_book_pubkey", "ref_book_id", "ref_block_id",
+		"ref_book_pubkey", "ref_book_id",
 	}
 	for _, field := range required_string_fields {
 		val, ok := content_data[field]

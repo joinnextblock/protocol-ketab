@@ -34,7 +34,6 @@ export function build_library_event(
 
   const tags: string[][] = [
     ["d", library_identifier],
-    ["a", content.ref_block_id], // City Protocol block event coordinate
     ["p", pubkey], // Librarian
     ["p", content.ref_clock_pubkey], // City clock reference
   ];
