@@ -47,11 +47,36 @@ func Load(dir string) (*Book, error) {
 		Chapters: make(map[string]*Chapter),
 	}
 
-	// Load book-metadata.json
+	// Try loading from single book.json first
+	single_path := filepath.Join(abs_dir, "book.json")
+	if single_data, err := os.ReadFile(single_path); err == nil {
+		single_book := &types.SingleBookFile{}
+		if err := json.Unmarshal(single_data, single_book); err != nil {
+			return nil, fmt.Errorf("failed to parse book.json: %w", err)
+		}
+		
+		// Convert to legacy formats for compatibility
+		book.Metadata = single_book.ToBookMetadata()
+		book.Shape = single_book.ToBookShape()
+		
+		// Load chapters using single file metadata
+		for _, ch_ref := range book.Metadata.GetAllChapters() {
+			ch, err := load_chapter_from_single(abs_dir, ch_ref.ChapterNumber, single_book)
+			if err != nil {
+				// Skip chapters that don't exist on disk
+				continue
+			}
+			book.Chapters[ch_ref.ChapterNumber] = ch
+		}
+		
+		return book, nil
+	}
+
+	// Fallback: Load legacy format (book-metadata.json + book-shape.json)
 	meta_path := filepath.Join(abs_dir, "book-metadata.json")
 	meta_data, err := os.ReadFile(meta_path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read book-metadata.json: %w", err)
+		return nil, fmt.Errorf("failed to read book-metadata.json (and no book.json found): %w", err)
 	}
 	book.Metadata = &types.BookMetadata{}
 	if err := json.Unmarshal(meta_data, book.Metadata); err != nil {
@@ -104,6 +129,42 @@ func load_chapter(book_dir, chapter_num string) (*Chapter, error) {
 	// Load ketabs
 	for _, item := range meta.GetKetabs() {
 		ketab_path := filepath.Join(ch_dir, item.File)
+		body, err := os.ReadFile(ketab_path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read ketab file %s: %w", item.File, err)
+		}
+
+		// Strip scene headers (e.g., "# Scene 1\n")
+		cleaned := strip_scene_header(string(body))
+
+		ch.Ketabs = append(ch.Ketabs, Ketab{
+			Item: item,
+			Body: cleaned,
+		})
+	}
+
+	return ch, nil
+}
+
+// load_chapter_from_single loads a chapter using metadata from the single book file.
+func load_chapter_from_single(book_dir, chapter_num string, single_book *types.SingleBookFile) (*Chapter, error) {
+	ch_dir := filepath.Join(book_dir, chapter_num)
+	
+	// Get metadata from single book file instead of chapter-metadata.json
+	meta := single_book.GetChapterMetadata(chapter_num)
+	if meta == nil {
+		return nil, fmt.Errorf("chapter %s not found in book.json", chapter_num)
+	}
+
+	ch := &Chapter{
+		Dir:      ch_dir,
+		Number:   chapter_num,
+		Metadata: meta,
+	}
+
+	// Load ketabs
+	for _, item := range meta.GetKetabs() {
+		ketab_path := filepath.Join(book_dir, item.File) // Use full path from book.json
 		body, err := os.ReadFile(ketab_path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read ketab file %s: %w", item.File, err)
@@ -276,16 +337,31 @@ func GetStatus(dir string) (*BookStatus, error) {
 		return nil, fmt.Errorf("invalid directory: %w", err)
 	}
 
-	// Load metadata
-	meta_path := filepath.Join(abs_dir, "book-metadata.json")
-	meta_data, err := os.ReadFile(meta_path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read book-metadata.json: %w", err)
-	}
+	// Load metadata - try single file first, then fallback
+	var meta *types.BookMetadata
+	var single_book *types.SingleBookFile
+	var using_single_file bool
+	
+	single_path := filepath.Join(abs_dir, "book.json")
+	if single_data, err := os.ReadFile(single_path); err == nil {
+		single_book = &types.SingleBookFile{}
+		if err := json.Unmarshal(single_data, single_book); err != nil {
+			return nil, fmt.Errorf("failed to parse book.json: %w", err)
+		}
+		meta = single_book.ToBookMetadata()
+		using_single_file = true
+	} else {
+		// Fallback to legacy format
+		meta_path := filepath.Join(abs_dir, "book-metadata.json")
+		meta_data, err := os.ReadFile(meta_path)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read book-metadata.json (and no book.json found): %w", err)
+		}
 
-	meta := &types.BookMetadata{}
-	if err := json.Unmarshal(meta_data, meta); err != nil {
-		return nil, fmt.Errorf("invalid book-metadata.json: %w", err)
+		meta = &types.BookMetadata{}
+		if err := json.Unmarshal(meta_data, meta); err != nil {
+			return nil, fmt.Errorf("invalid book-metadata.json: %w", err)
+		}
 	}
 
 	all_chapters := meta.GetAllChapters()
@@ -297,10 +373,14 @@ func GetStatus(dir string) (*BookStatus, error) {
 		ChapterCount: len(all_chapters),
 	}
 
-	// Check book-shape.json
-	shape_path := filepath.Join(abs_dir, "book-shape.json")
-	if _, err := os.Stat(shape_path); err == nil {
-		status.HasShape = true
+	// Set HasShape based on single file or shape file existence
+	if using_single_file {
+		status.HasShape = true // Single file always provides shape data
+	} else {
+		shape_path := filepath.Join(abs_dir, "book-shape.json")
+		if _, err := os.Stat(shape_path); err == nil {
+			status.HasShape = true
+		}
 	}
 
 	// Check chapters from acts
@@ -311,22 +391,42 @@ func GetStatus(dir string) (*BookStatus, error) {
 			UUID:   ch_ref.ChapterUUID,
 		}
 
-		ch_dir := filepath.Join(abs_dir, ch_ref.ChapterNumber)
-		ch_meta_path := filepath.Join(ch_dir, "chapter-metadata.json")
-
-		if ch_meta_data, err := os.ReadFile(ch_meta_path); err == nil {
-			ch_status.HasMetadata = true
-			ch_meta := &types.ChapterMetadata{}
-			if err := json.Unmarshal(ch_meta_data, ch_meta); err == nil {
+		if using_single_file {
+			// Get ketab info from single file
+			ch_meta := single_book.GetChapterMetadata(ch_ref.ChapterNumber)
+			if ch_meta != nil {
+				ch_status.HasMetadata = true
 				items := ch_meta.GetKetabs()
 				ch_status.KetabCount = len(items)
 				status.TotalKetabs += len(items)
 
 				// Check for missing ketab files
 				for _, item := range items {
-					ketab_path := filepath.Join(ch_dir, item.File)
+					ketab_path := filepath.Join(abs_dir, item.File)
 					if _, err := os.Stat(ketab_path); os.IsNotExist(err) {
 						ch_status.MissingFiles = append(ch_status.MissingFiles, item.File)
+					}
+				}
+			}
+		} else {
+			// Legacy format: read individual chapter-metadata.json
+			ch_dir := filepath.Join(abs_dir, ch_ref.ChapterNumber)
+			ch_meta_path := filepath.Join(ch_dir, "chapter-metadata.json")
+
+			if ch_meta_data, err := os.ReadFile(ch_meta_path); err == nil {
+				ch_status.HasMetadata = true
+				ch_meta := &types.ChapterMetadata{}
+				if err := json.Unmarshal(ch_meta_data, ch_meta); err == nil {
+					items := ch_meta.GetKetabs()
+					ch_status.KetabCount = len(items)
+					status.TotalKetabs += len(items)
+
+					// Check for missing ketab files
+					for _, item := range items {
+						ketab_path := filepath.Join(ch_dir, item.File)
+						if _, err := os.Stat(ketab_path); os.IsNotExist(err) {
+							ch_status.MissingFiles = append(ch_status.MissingFiles, item.File)
+						}
 					}
 				}
 			}
