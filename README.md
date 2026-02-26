@@ -80,16 +80,6 @@ my-story/
 
 Write in markdown. Organize in folders. Publish with one command. Your story becomes permanently addressable content that readers can engage with at the scene level.
 
-## Real-World Economics
-
-**"I published my Bitcoin custody guide as ketabs. Readers pay 50 sats per scene. Last month I earned 2.1M sats directly from readers. No Substack fee. No payment processing. Just value for value."**
-
-**"My book about sovereign infrastructure gets referenced constantly. Every time someone quotes a specific scene, my naddr gets shared. New readers discover my work through organic citations, not platform algorithms."**
-
-**"I curate a library of the best Bitcoin writing. When readers discover books through my collection, I earn a cut. Curation becomes a revenue stream, not just a hobby."**
-
-This is the attention economy working for creators instead of platforms.
-
 ## Getting Started
 
 **1. Install the CLI**
