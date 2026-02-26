@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/joinnextblock/ketab-protocol/cli/internal/book"
@@ -16,10 +18,12 @@ import (
 )
 
 var (
-	flag_nsec     string
-	flag_chapters string
-	flag_dry_run  bool
-	flag_relays   string
+	flag_nsec          string
+	flag_chapters      string
+	flag_dry_run       bool
+	flag_relays        string
+	flag_ketabs_only   bool
+	flag_clean_metadata bool
 )
 
 func main() {
@@ -32,6 +36,7 @@ func main() {
 	publish_cmd := &cobra.Command{
 		Use:   "publish <book-dir>",
 		Short: "Publish book events (ketabs, chapters, book, library) to relays",
+		Long:  "Publish book events to relays. Use --ketabs-only to skip chapters (30023) and only publish ketabs (38893), book (38891), and library (38890).",
 		Args:  cobra.ExactArgs(1),
 		RunE:  run_publish,
 	}
@@ -39,6 +44,7 @@ func main() {
 	publish_cmd.Flags().StringVar(&flag_chapters, "chapters", "", "Comma-separated chapter numbers (default: all)")
 	publish_cmd.Flags().BoolVar(&flag_dry_run, "dry-run", false, "Generate events without publishing")
 	publish_cmd.Flags().StringVar(&flag_relays, "relays", strings.Join(types.DefaultRelays, ","), "Comma-separated relay URLs")
+	publish_cmd.Flags().BoolVar(&flag_ketabs_only, "ketabs-only", false, "Publish only ketabs (38893), skip chapters (30023)")
 
 	// validate
 	validate_cmd := &cobra.Command{
@@ -56,7 +62,21 @@ func main() {
 		RunE:  run_status,
 	}
 
-	root.AddCommand(publish_cmd, validate_cmd, status_cmd)
+	// delete-threads
+	delete_threads_cmd := &cobra.Command{
+		Use:   "delete-threads <book-dir>",
+		Short: "Delete discussion threads referenced in book metadata",
+		Long:  "Send NIP-09 deletion requests for discussion threads. Use --clean-metadata to also remove thread IDs from book metadata and republish.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  run_delete_threads,
+	}
+	delete_threads_cmd.Flags().StringVar(&flag_nsec, "nsec", "", "Author nsec (or set KETAB_NSEC env)")
+	delete_threads_cmd.Flags().StringVar(&flag_chapters, "chapters", "", "Comma-separated chapter numbers (default: all)")
+	delete_threads_cmd.Flags().BoolVar(&flag_dry_run, "dry-run", false, "Show what would be deleted without sending deletion events")
+	delete_threads_cmd.Flags().StringVar(&flag_relays, "relays", strings.Join(types.DefaultRelays, ","), "Comma-separated relay URLs")
+	delete_threads_cmd.Flags().BoolVar(&flag_clean_metadata, "clean-metadata", false, "Remove discussion_id fields from metadata and republish book")
+
+	root.AddCommand(publish_cmd, validate_cmd, status_cmd, delete_threads_cmd)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -180,25 +200,30 @@ func run_publish(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 2. Chapters
-	fmt.Println("\n═══ CHAPTERS ═══")
-	for _, ch_num := range chapter_nums {
-		ch, ok := bk.GetChapter(ch_num)
-		if !ok {
-			continue
+	// 2. Chapters (skip if --ketabs-only)
+	if !flag_ketabs_only {
+		fmt.Println("\n═══ CHAPTERS ═══")
+		for _, ch_num := range chapter_nums {
+			ch, ok := bk.GetChapter(ch_num)
+			if !ok {
+				continue
+			}
+			event := builder.BuildChapter(bk, ch)
+			event.PubKey = pk
+			if err := events.SignEvent(&event, sk); err != nil {
+				fmt.Printf("  ❌ Sign failed: %v\n", err)
+				continue
+			}
+			total++
+			fmt.Printf("\n📤 Chapter %s: \"%s\" (id: %s)\n", ch_num, ch.Metadata.ChapterTitle, event.ID[:12])
+			if !flag_dry_run {
+				publish_event(ctx, &event, relays)
+			}
+			success++
 		}
-		event := builder.BuildChapter(bk, ch)
-		event.PubKey = pk
-		if err := events.SignEvent(&event, sk); err != nil {
-			fmt.Printf("  ❌ Sign failed: %v\n", err)
-			continue
-		}
-		total++
-		fmt.Printf("\n📤 Chapter %s: \"%s\" (id: %s)\n", ch_num, ch.Metadata.ChapterTitle, event.ID[:12])
-		if !flag_dry_run {
-			publish_event(ctx, &event, relays)
-		}
-		success++
+	} else {
+		fmt.Println("\n═══ CHAPTERS ═══")
+		fmt.Println("  🚫 Skipped (--ketabs-only mode)")
 	}
 
 	// 3. Book
@@ -282,4 +307,270 @@ func run_status(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func run_delete_threads(cmd *cobra.Command, args []string) error {
+	book_dir := args[0]
+	relays := strings.Split(flag_relays, ",")
+
+	nsec_str, err := resolve_nsec()
+	if err != nil {
+		return err
+	}
+
+	sk, pk, err := decode_nsec(nsec_str)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("📐 Pubkey: %s\n", pk)
+	fmt.Printf("📖 Loading book from %s\n\n", book_dir)
+
+	// Load book metadata
+	book_file := filepath.Join(book_dir, "book.json")
+	book_data, err := os.ReadFile(book_file)
+	if err != nil {
+		return fmt.Errorf("failed to read book.json: %w", err)
+	}
+
+	var book_metadata map[string]interface{}
+	if err := json.Unmarshal(book_data, &book_metadata); err != nil {
+		return fmt.Errorf("failed to parse book.json: %w", err)
+	}
+
+	// Extract discussion IDs
+	discussion_ids := make(map[string]string) // chapter_number -> discussion_id
+	
+	// Try to extract from "shape" field first (new format)
+	if shape, ok := book_metadata["shape"].([]interface{}); ok {
+		for _, act_interface := range shape {
+			if act, ok := act_interface.([]interface{}); ok {
+				for _, chapter_interface := range act {
+					if chapter, ok := chapter_interface.(map[string]interface{}); ok {
+						if discussion_id, ok := chapter["discussion_id"].(string); ok && discussion_id != "" {
+							// Need to derive chapter number from d_tag or title
+							if title, ok := chapter["title"].(string); ok {
+								// This is a simplified mapping - in a real implementation you'd need better logic
+								chapter_num := derive_chapter_number_from_title(title)
+								if chapter_num != "" {
+									discussion_ids[chapter_num] = discussion_id
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Also try "acts" field (legacy format)
+	if acts, ok := book_metadata["acts"].([]interface{}); ok {
+		for _, act_interface := range acts {
+			if act, ok := act_interface.(map[string]interface{}); ok {
+				if chapters, ok := act["chapters"].([]interface{}); ok {
+					for _, chapter_interface := range chapters {
+						if chapter, ok := chapter_interface.(map[string]interface{}); ok {
+							if discussion_id, ok := chapter["discussion_id"].(string); ok && discussion_id != "" {
+								if number, ok := chapter["number"].(string); ok {
+									discussion_ids[number] = discussion_id
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(discussion_ids) == 0 {
+		fmt.Println("No discussion threads found in book metadata")
+		return nil
+	}
+
+	// Filter by chapters if specified
+	var target_chapters []string
+	if flag_chapters != "" {
+		target_chapters = strings.Split(flag_chapters, ",")
+		for i, ch := range target_chapters {
+			target_chapters[i] = strings.TrimSpace(ch)
+		}
+	} else {
+		for ch := range discussion_ids {
+			target_chapters = append(target_chapters, ch)
+		}
+	}
+
+	fmt.Printf("Found discussion threads for chapters: %v\n", target_chapters)
+	fmt.Printf("Dry run: %v\n\n", flag_dry_run)
+
+	// Delete discussion threads
+	fmt.Println("═══ DELETING THREADS ═══")
+	ctx := context.Background()
+	var deleted_count int
+
+	for _, ch_num := range target_chapters {
+		discussion_id, exists := discussion_ids[ch_num]
+		if !exists {
+			fmt.Printf("⚠️  Chapter %s: no discussion thread found\n", ch_num)
+			continue
+		}
+
+		fmt.Printf("\n🗑️  Chapter %s: %s\n", ch_num, discussion_id[:12]+"...")
+		
+		if flag_dry_run {
+			fmt.Printf("  [DRY RUN] Would send deletion event\n")
+			deleted_count++
+			continue
+		}
+
+		// Create NIP-09 deletion event
+		deletion_event := nostr.Event{
+			Kind:      5, // NIP-09 Event Deletion
+			CreatedAt: nostr.Now(),
+			Tags: nostr.Tags{
+				{"e", discussion_id},
+			},
+			Content: "Deleting discussion thread - superseded by improved version",
+		}
+		deletion_event.PubKey = pk
+
+		if err := events.SignEvent(&deletion_event, sk); err != nil {
+			fmt.Printf("  ❌ Sign failed: %v\n", err)
+			continue
+		}
+
+		// Publish to relays
+		for _, url := range relays {
+			relay, err := nostr.RelayConnect(ctx, url)
+			if err != nil {
+				fmt.Printf("  ⚠️  %s: %v\n", url, err)
+				continue
+			}
+			err = relay.Publish(ctx, deletion_event)
+			relay.Close()
+			if err != nil {
+				fmt.Printf("  ⚠️  %s: %v\n", url, err)
+			} else {
+				fmt.Printf("  ✅ %s\n", url)
+			}
+		}
+		deleted_count++
+	}
+
+	fmt.Printf("\n🏁 Deletion requests sent for %d threads\n", deleted_count)
+
+	// Clean metadata if requested
+	if flag_clean_metadata {
+		fmt.Println("\n═══ CLEANING METADATA ═══")
+		
+		// Remove discussion_id fields from the specified chapters
+		cleaned := false
+		
+		// Clean "shape" field
+		if shape, ok := book_metadata["shape"].([]interface{}); ok {
+			for _, act_interface := range shape {
+				if act, ok := act_interface.([]interface{}); ok {
+					for _, chapter_interface := range act {
+						if chapter, ok := chapter_interface.(map[string]interface{}); ok {
+							if title, ok := chapter["title"].(string); ok {
+								chapter_num := derive_chapter_number_from_title(title)
+								for _, target_ch := range target_chapters {
+									if chapter_num == target_ch {
+										delete(chapter, "discussion_id")
+										cleaned = true
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Clean "acts" field
+		if acts, ok := book_metadata["acts"].([]interface{}); ok {
+			for _, act_interface := range acts {
+				if act, ok := act_interface.(map[string]interface{}); ok {
+					if chapters, ok := act["chapters"].([]interface{}); ok {
+						for _, chapter_interface := range chapters {
+							if chapter, ok := chapter_interface.(map[string]interface{}); ok {
+								if number, ok := chapter["number"].(string); ok {
+									for _, target_ch := range target_chapters {
+										if number == target_ch {
+											delete(chapter, "discussion_id")
+											cleaned = true
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if cleaned {
+			if flag_dry_run {
+				fmt.Println("✅ [DRY RUN] Would clean metadata, removing discussion_id fields")
+				fmt.Println("✅ [DRY RUN] Would republish book with cleaned metadata")
+			} else {
+				// Write updated metadata
+				updated_data, err := json.MarshalIndent(book_metadata, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal updated metadata: %w", err)
+				}
+
+				if err := os.WriteFile(book_file, updated_data, 0644); err != nil {
+					return fmt.Errorf("failed to write updated book.json: %w", err)
+				}
+
+				fmt.Println("✅ Metadata cleaned, discussion_id fields removed")
+
+				// Republish book
+				fmt.Println("\n═══ REPUBLISHING BOOK ═══")
+				
+				bk, err := book.Load(book_dir)
+				if err != nil {
+					return fmt.Errorf("failed to reload book: %w", err)
+				}
+
+				builder := events.NewBuilder(pk, relays[0])
+				book_event := builder.BuildBook(bk, bk.GetChapterNumbers())
+				book_event.PubKey = pk
+				if err := events.SignEvent(&book_event, sk); err != nil {
+					return fmt.Errorf("sign book failed: %w", err)
+				}
+
+				fmt.Printf("\n📤 Book: \"%s\" (id: %s)\n", bk.Metadata.BookTitle, book_event.ID[:12])
+				publish_event(ctx, &book_event, relays)
+
+				fmt.Println("✅ Book republished with cleaned metadata")
+			}
+		}
+	}
+
+	fmt.Println("\nNote: Event deletion is not guaranteed - some relays may ignore deletion requests")
+
+	return nil
+}
+
+// Helper function to derive chapter number from title
+// This is a simplified implementation - you might want to make this more robust
+func derive_chapter_number_from_title(title string) string {
+	chapter_map := map[string]string{
+		"21 Sats":                     "01",
+		"Shittier Twitter":            "02", 
+		"Permission Granted":          "03",
+		"Can't Steal What's Free":     "04",
+		"Obviously, I Checked":        "04", // Alternative title
+		"Congrats on Fifteen Years":   "05",
+		"GM ☕":                       "06",
+		"My Muse":                     "07",
+		"Tick Tock":                   "08",
+	}
+	
+	if num, ok := chapter_map[title]; ok {
+		return num
+	}
+	return ""
 }
