@@ -141,7 +141,7 @@ func ValidateBookEvent(event *nostr.Event) ValidationResult {
 	// Check required string fields
 	required_string_fields := []string{
 		"title", "description", "author",
-		"ref_book_pubkey", "ref_book_id",
+		// "ref_book_pubkey", "ref_book_id",
 	}
 	for _, field := range required_string_fields {
 		val, ok := content_data[field]

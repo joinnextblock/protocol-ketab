@@ -86,19 +86,80 @@ func (b *Builder) BuildChapter(bk *book.Book, ch *book.Chapter) nostr.Event {
 
 // BookContent is the JSON content for a book event.
 type BookContent struct {
-	Title         string      `json:"title"`
-	Description   string      `json:"description"`
-	Author        string      `json:"author"`
-	CoverImageURL string      `json:"cover_image_url,omitempty"`
-	PublishedAt   int64       `json:"published_at"`
-	Shape         any `json:"shape"` // From book-shape.json
-	RefBookPubkey string      `json:"ref_book_pubkey"`
-	RefBookID     string      `json:"ref_book_id"`
+	Title         string       `json:"title"`
+	Description   string       `json:"description"`
+	Author        string       `json:"author"`
+	CoverImageURL string       `json:"cover_image_url,omitempty"`
+	PublishedAt   int64        `json:"published_at"`
+	Shape         any          `json:"shape,omitempty"` // From book-shape.json (optional)
+	Acts          []PublishAct `json:"acts"`            // 3-level hierarchy: acts → chapters → ketabs
+	RefBookPubkey string       `json:"ref_book_pubkey"`
+	RefBookID     string       `json:"ref_book_id"`
+}
+
+// PublishAct represents an act in the published book event.
+type PublishAct struct {
+	Title    string           `json:"title"`
+	Chapters []PublishChapter `json:"chapters"` // Always an array, empty if no published chapters
+}
+
+// PublishChapter represents a chapter in the published book event.
+type PublishChapter struct {
+	Number string         `json:"number"`
+	Title  string         `json:"title"`
+	UUID   string         `json:"uuid"`
+	Ketabs []PublishKetab `json:"ketabs"` // Always an array, empty if no ketabs
+}
+
+// PublishKetab represents a ketab reference in the published book event.
+type PublishKetab struct {
+	Title string `json:"title"`
+	UUID  string `json:"uuid"`
 }
 
 // BuildBook builds a book event (kind 38891).
 func (b *Builder) BuildBook(bk *book.Book, chapter_nums []string) nostr.Event {
 	now := time.Now().Unix()
+
+	// Build the 3-level acts hierarchy from book metadata
+	published_chapters := make(map[string]bool)
+	for _, ch_num := range chapter_nums {
+		published_chapters[ch_num] = true
+	}
+
+	var acts []PublishAct
+	for _, act_ref := range bk.Metadata.Acts {
+		publishAct := PublishAct{
+			Title:    act_ref.Title,
+			Chapters: []PublishChapter{}, // Initialize as empty array, not nil
+		}
+
+		// Add chapters from this act
+		for _, ch_ref := range act_ref.Chapters {
+			publishChapter := PublishChapter{
+				Number: ch_ref.ChapterNumber,
+				Title:  ch_ref.ChapterTitle,
+				UUID:   ch_ref.ChapterUUID,
+				Ketabs: []PublishKetab{}, // Initialize as empty array, not nil
+			}
+
+			// Only add ketabs if this chapter is being published
+			if published_chapters[ch_ref.ChapterNumber] {
+				if ch, ok := bk.GetChapter(ch_ref.ChapterNumber); ok {
+					for _, ketab := range ch.Ketabs {
+						publishChapter.Ketabs = append(publishChapter.Ketabs, PublishKetab{
+							Title: ketab.Item.Title,
+							UUID:  ketab.Item.UUID,
+						})
+					}
+				}
+			}
+			
+			publishAct.Chapters = append(publishAct.Chapters, publishChapter)
+		}
+
+		acts = append(acts, publishAct)
+	}
 
 	// Build content
 	content := BookContent{
@@ -107,11 +168,12 @@ func (b *Builder) BuildBook(bk *book.Book, chapter_nums []string) nostr.Event {
 		Author:        bk.Metadata.Author,
 		CoverImageURL: bk.Metadata.Image,
 		PublishedAt:   now,
+		Acts:          acts, // Use the constructed 3-level hierarchy
 		RefBookPubkey: b.pubkey,
 		RefBookID:     bk.Metadata.BookUUID,
 	}
 
-	// Use book-shape.json if available
+	// Optionally include book-shape.json data if available
 	if bk.Shape != nil {
 		content.Shape = bk.Shape.Shape
 	}

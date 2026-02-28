@@ -12,6 +12,7 @@ import (
 	"github.com/joinnextblock/ketab-protocol/cli/internal/book"
 	"github.com/joinnextblock/ketab-protocol/cli/internal/events"
 	"github.com/joinnextblock/ketab-protocol/cli/internal/types"
+	core "github.com/joinnextblock/ketab-protocol/go-core"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/spf13/cobra"
@@ -24,6 +25,12 @@ var (
 	flag_relays        string
 	flag_ketabs_only   bool
 	flag_clean_metadata bool
+	// add-to-library flags
+	flag_library_id    string
+	flag_notes         string
+	flag_rating        int
+	flag_status        string
+	flag_tags          string
 )
 
 func main() {
@@ -76,7 +83,24 @@ func main() {
 	delete_threads_cmd.Flags().StringVar(&flag_relays, "relays", strings.Join(types.DefaultRelays, ","), "Comma-separated relay URLs")
 	delete_threads_cmd.Flags().BoolVar(&flag_clean_metadata, "clean-metadata", false, "Remove discussion_id fields from metadata and republish book")
 
-	root.AddCommand(publish_cmd, validate_cmd, status_cmd, delete_threads_cmd)
+	// add-to-library
+	add_to_library_cmd := &cobra.Command{
+		Use:   "add-to-library <book-naddr>",
+		Short: "Add a book to your library (publish Library Entry event kind 38892)",
+		Long:  "Creates a Library Entry event that adds the specified book to the librarian's library collection.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  run_add_to_library,
+	}
+	add_to_library_cmd.Flags().StringVar(&flag_nsec, "nsec", "", "Librarian's nsec (or set KETAB_NSEC env)")
+	add_to_library_cmd.Flags().StringVar(&flag_library_id, "library-id", "a5213b36-5ad4-41c0-93d4-06b2adddcea8", "Library UUID")
+	add_to_library_cmd.Flags().StringVar(&flag_notes, "notes", "", "Personal notes about the book")
+	add_to_library_cmd.Flags().IntVar(&flag_rating, "rating", 0, "Rating 1-5 (optional)")
+	add_to_library_cmd.Flags().StringVar(&flag_status, "status", "reading", "Status: want-to-read, reading, finished, abandoned")
+	add_to_library_cmd.Flags().StringVar(&flag_tags, "tags", "", "Comma-separated tags")
+	add_to_library_cmd.Flags().StringVar(&flag_relays, "relays", strings.Join(types.DefaultRelays, ","), "Comma-separated relay URLs")
+	add_to_library_cmd.Flags().BoolVar(&flag_dry_run, "dry-run", false, "Generate event without publishing")
+
+	root.AddCommand(publish_cmd, validate_cmd, status_cmd, delete_threads_cmd, add_to_library_cmd)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -573,4 +597,125 @@ func derive_chapter_number_from_title(title string) string {
 		return num
 	}
 	return ""
+}
+
+func run_add_to_library(cmd *cobra.Command, args []string) error {
+	book_naddr := args[0]
+	relays := strings.Split(flag_relays, ",")
+
+	// Resolve nsec
+	nsec_str, err := resolve_nsec()
+	if err != nil {
+		return err
+	}
+
+	sk, pk, err := decode_nsec(nsec_str)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("📐 Librarian pubkey: %s\n", pk)
+	fmt.Printf("📚 Adding book to library: %s\n", flag_library_id)
+	fmt.Printf("📖 Book naddr: %s\n\n", book_naddr)
+
+	// Parse book naddr
+	prefix, data, err := nip19.Decode(book_naddr)
+	if err != nil {
+		return fmt.Errorf("invalid naddr: %w", err)
+	}
+	if prefix != "naddr" {
+		return fmt.Errorf("expected naddr, got %s", prefix)
+	}
+
+	entity_pointer, ok := data.(nostr.EntityPointer)
+	if !ok {
+		return fmt.Errorf("invalid naddr data")
+	}
+
+	// Validate this is a book event
+	if entity_pointer.Kind != core.KindBook {
+		return fmt.Errorf("expected book event (kind %d), got kind %d", core.KindBook, entity_pointer.Kind)
+	}
+
+	book_author_pubkey := entity_pointer.PublicKey
+	book_d_tag := entity_pointer.Identifier
+
+	fmt.Printf("Book author: %s\n", book_author_pubkey)
+	fmt.Printf("Book d-tag: %s\n", book_d_tag)
+	fmt.Printf("Status: %s\n", flag_status)
+	fmt.Printf("Dry run: %v\n\n", flag_dry_run)
+
+	// Build Library Entry content
+	var rating_ptr *int
+	if flag_rating > 0 {
+		rating_ptr = &flag_rating
+	}
+
+	var tags_array []string
+	if flag_tags != "" {
+		for _, tag := range strings.Split(flag_tags, ",") {
+			tags_array = append(tags_array, strings.TrimSpace(tag))
+		}
+	}
+
+	book_coordinate := fmt.Sprintf("%d:%s:%s", core.KindBook, book_author_pubkey, book_d_tag)
+	library_coordinate := fmt.Sprintf("%d:%s:%s", core.KindLibrary, pk, flag_library_id)
+	d_tag := fmt.Sprintf("%s:%s", flag_library_id, book_coordinate)
+
+	content := core.LibraryEntryContent{
+		Notes:                 flag_notes,
+		Rating:                rating_ptr,
+		Tags:                  tags_array,
+		ReadStatus:            flag_status,
+		AddedAt:               nostr.Now().Time().Unix(),
+		RefLibraryOwnerPubkey: pk,
+		RefLibraryID:          flag_library_id,
+		RefBookCoordinate:     book_coordinate,
+		RefBookPubkey:         book_author_pubkey,
+		RefBookID:             book_d_tag,
+	}
+
+	content_json, err := json.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("failed to marshal content: %w", err)
+	}
+
+	// Build Library Entry event (kind 38892)
+	library_entry_event := nostr.Event{
+		Kind:      core.KindLibraryEntry,
+		CreatedAt: nostr.Now(),
+		Tags: nostr.Tags{
+			{"d", d_tag},
+			{"a", book_coordinate},
+			{"a", library_coordinate},
+		},
+		Content: string(content_json),
+		PubKey:  pk,
+	}
+
+	// Sign the event
+	if err := events.SignEvent(&library_entry_event, sk); err != nil {
+		return fmt.Errorf("sign library entry failed: %w", err)
+	}
+
+	fmt.Println("═══ LIBRARY ENTRY ═══")
+	fmt.Printf("\n📤 Library Entry: book \"%s\" → library %s (id: %s)\n", 
+		book_d_tag[:12]+"...", flag_library_id[:8]+"...", library_entry_event.ID[:12])
+
+	// Publish event
+	if !flag_dry_run {
+		ctx := context.Background()
+		publish_event(ctx, &library_entry_event, relays)
+	} else {
+		fmt.Println("  [DRY RUN] Event would be published")
+	}
+
+	fmt.Printf("\n🏁 Library Entry event created successfully\n")
+
+	// Show event details
+	if flag_dry_run {
+		fmt.Printf("\n📋 Event JSON:\n%s\n", string(content_json))
+	}
+
+	return nil
 }
